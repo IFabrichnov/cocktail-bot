@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from cocktail.models import Cocktail
+from cocktail.models import Cocktail, IngredientMeasure
 from cocktail.normalize import AliasBook
 from cocktail.parse import cocktail_from_raw
 from cocktail.search import IngredientMatcher
@@ -99,6 +99,22 @@ def raw_drinks() -> list[dict[str, Any]]:
 @pytest.fixture
 def cocktails(raw_drinks: list[dict[str, Any]]) -> tuple[Cocktail, ...]:
     return tuple(cocktail_from_raw(raw) for raw in raw_drinks)
+
+
+@pytest.fixture
+def many_cocktails() -> tuple[Cocktail, ...]:
+    """20 коктейлей из джина и кампари: хватает на три листа по 8."""
+    return tuple(
+        Cocktail(
+            id=str(index),
+            name=f"Test {index:02d}",
+            measures=(
+                IngredientMeasure(ingredient="Gin", raw="Gin"),
+                IngredientMeasure(ingredient="Campari", raw="Campari"),
+            ),
+        )
+        for index in range(1, 21)
+    )
 
 
 @pytest.fixture

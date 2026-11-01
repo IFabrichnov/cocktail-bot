@@ -4,6 +4,14 @@
 пользовательского ввода, подбор коктейлей, форматирование сообщения и
 содержимое кнопок. ``handlers.py`` остаётся тонким слоем транспорта, поэтому
 замена aiogram на HTTP или на что-то ещё затронет только его.
+
+Два измерения навигации:
+
+* **страница подбора** - сколько ингредиентов разрешено докупить (0, 1, 2);
+* **лист** - смещение внутри страницы, по ``PAGE_SIZE`` карточек.
+
+Это разные вещи, и путать их нельзя: страница отвечает на вопрос «что мне
+нужно купить», лист - «покажи остальные варианты из этого же набора».
 """
 
 from __future__ import annotations
@@ -16,11 +24,11 @@ from dataclasses import dataclass
 from cocktail.models import Cocktail
 from cocktail.search import IngredientMatcher, MatchResult, find
 
-#: Сколько коктейлей показываем в одном ответе.
-MAX_ITEMS = 5
+#: Сколько карточек показываем на одном листе.
+PAGE_SIZE = 8
 #: Три страницы подбора: готово сейчас, докупить один, докупить два.
 BUCKETS = (0, 1, 2)
-#: Подписи кнопок-переключателей.
+#: Подписи кнопок-переключателей страниц.
 BUCKET_LABELS = {0: "только своё", 1: "докупить 1", 2: "докупить 2"}
 #: Telegram ограничивает сообщение 4096 символами, оставляем запас.
 TEXT_LIMIT = 3800
@@ -45,8 +53,8 @@ HELP_TEXT = (
     "2. Я ищу коктейли, которые из них получаются.\n"
     "3. Показываю три страницы: что готово прямо сейчас, что можно собрать, "
     "докупив один ингредиент, и что можно собрать, докупив два.\n\n"
-    "Кнопки под ответом переключают страницы. «Только своё» - строгое "
-    "условие, без покупок.\n\n"
+    "Кнопки под ответом переключают страницы, стрелки листают список "
+    "внутри страницы. «Только своё» - строгое условие, без покупок.\n\n"
     "Названия сопоставляются по словарю синонимов: «сок лайма», «lime juice» "
     "и «Lime Juice» - это один ингредиент, а «лайм» и «сок лайма» - разные.\n\n"
     "Количества не учитываются: если у тебя есть джин, а в рецепте нужно "
@@ -72,6 +80,10 @@ TRUNCATED_SUFFIX = "\n\nСписок длинный, показал первые
 
 NOTE_NO_READY = "Готовых коктейлей нет. Показываю ближайшее:"
 NOTE_ONE_MISSING_EMPTY = "И с одним недостающим пусто. Дальше только с двумя:"
+
+BACK_LABEL = "◀ назад"
+FORWARD_LABEL = "вперёд ▶"
+PAGES_HINT = "Стрелки листают список, кнопки внизу меняют, сколько нужно докупить."
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,21 +147,39 @@ def parse_have(text: str) -> list[str]:
     return result
 
 
-def parse_callback(data: str) -> tuple[int, str] | None:
-    """Разобрать callback_data вида ``m1:abcd123456``."""
+def parse_callback(data: str) -> tuple[int, int, str] | None:
+    """Разобрать callback_data.
+
+    Два формата: ``m1:ключ`` (страница без листания) и ``m1:ключ:8``
+    (страница и смещение). Возвращает ``(страница, смещение, ключ)``.
+    """
     prefix, separator, rest = data.partition(":")
     if not separator or not prefix.startswith("m"):
         return None
-    key = rest.strip()
-    if not key:
-        return None
+
     try:
         bucket = int(prefix[1:])
     except ValueError:
         return None
     if bucket < 0:
         return None
-    return bucket, key
+
+    parts = rest.split(":")
+    key = parts[0].strip()
+    if not key:
+        return None
+
+    offset = 0
+    if len(parts) > 1:
+        try:
+            offset = int(parts[1])
+        except ValueError:
+            return None
+        if offset < 0:
+            offset = 0
+    if len(parts) > 2:
+        return None
+    return bucket, offset, key
 
 
 def build_reply(
@@ -159,6 +189,7 @@ def build_reply(
     cache: QueryCache,
     *,
     bucket: int = 0,
+    offset: int = 0,
 ) -> Reply:
     """Собрать ответ на пользовательский текст.
 
@@ -166,6 +197,7 @@ def build_reply(
         ингредиентов разрешено докупить). Если для страницы ничего нет, бот
         сам переходит к следующей и говорит об этом: молчаливое «ничего не
         найдено» раздражает сильнее, чем честное «покажу ближайшее».
+    :param offset: смещение внутри страницы, кратно ``PAGE_SIZE``.
     """
     have = parse_have(text)
     if not have:
@@ -185,20 +217,30 @@ def build_reply(
     if not page:
         return Reply(text=NOTHING_TEXT)
 
+    start = _clamp_offset(offset, len(page))
+    visible = page[start : start + PAGE_SIZE]
+
     note = ""
     if current != requested:
         note = NOTE_NO_READY if requested == 0 else NOTE_ONE_MISSING_EMPTY
         note += "\n\n"
 
     blocks = "\n\n".join(
-        _format_result(index, result) for index, result in enumerate(page[:MAX_ITEMS], 1)
+        _format_result(start + index, result) for index, result in enumerate(visible, 1)
     )
     message = (
         f"Что можно сделать: {', '.join(have)}\n\n"
-        f"{note}{_header(current, len(page))}\n\n"
-        f"{blocks}\n\nКнопки ниже переключают страницы."
+        f"{note}{_header(current, len(page), start, len(visible))}\n\n"
+        f"{blocks}\n\n{PAGES_HINT}"
     )
-    return Reply(text=_clamp(message), rows=_bucket_rows(text, cache, current, pages))
+    rows = _bucket_rows(text, cache, current, pages) + _navigation_rows(
+        text,
+        cache,
+        current,
+        start,
+        len(page),
+    )
+    return Reply(text=_clamp(message), rows=rows)
 
 
 def _split_by_bucket(
@@ -233,11 +275,15 @@ def _format_result(index: int, result: MatchResult) -> str:
     return f"{head}\n   докупить: {missing}"
 
 
-def _header(bucket: int, total: int) -> str:
+def _header(bucket: int, total: int, start: int, shown: int) -> str:
     if bucket == 0:
-        return f"Готово к приготовлению: {total}"
-    noun = "ингредиент" if bucket == 1 else "ингредиента"
-    return f"Докупить {bucket} {noun}: {total}"
+        title = f"Готово к приготовлению: {total}"
+    else:
+        noun = "ингредиент" if bucket == 1 else "ингредиента"
+        title = f"Докупить {bucket} {noun}: {total}"
+    if total > PAGE_SIZE:
+        title += f"\nПоказаны {start + 1}-{start + shown} из {total}"
+    return title
 
 
 def _bucket_rows(
@@ -262,10 +308,47 @@ def _bucket_rows(
     return (buttons,)
 
 
+def _navigation_rows(
+    text: str,
+    cache: QueryCache,
+    bucket: int,
+    start: int,
+    total: int,
+) -> tuple[tuple[Button, ...], ...]:
+    """Стрелки листания внутри страницы.
+
+    Кнопка появляется только если в ту сторону действительно есть карточки:
+    стрелка, которая ничего не делает, хуже отсутствующей.
+    """
+    if total <= PAGE_SIZE:
+        return ()
+
+    key = cache.put(text)
+    buttons: list[Button] = []
+    if start > 0:
+        previous = max(0, start - PAGE_SIZE)
+        buttons.append(Button(text=BACK_LABEL, data=f"m{bucket}:{key}:{previous}"))
+    if start + PAGE_SIZE < total:
+        following = start + PAGE_SIZE
+        buttons.append(Button(text=FORWARD_LABEL, data=f"m{bucket}:{key}:{following}"))
+    if not buttons:
+        return ()
+    return (tuple(buttons),)
+
+
 def _clamp_bucket(bucket: int) -> int:
     if bucket in BUCKETS:
         return bucket
     return min(max(bucket, min(BUCKETS)), max(BUCKETS))
+
+
+def _clamp_offset(offset: int, total: int) -> int:
+    """Привести смещение к существующему листy."""
+    if offset <= 0 or total <= 0:
+        return 0
+    if offset >= total:
+        return max(0, ((total - 1) // PAGE_SIZE) * PAGE_SIZE)
+    return offset
 
 
 def _clamp(message: str) -> str:

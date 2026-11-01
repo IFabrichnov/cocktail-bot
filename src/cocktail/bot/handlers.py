@@ -53,7 +53,7 @@ async def on_page(callback: CallbackQuery, app: BotApp) -> None:
         await callback.answer()
         return
 
-    bucket, key = parsed
+    bucket, offset, key = parsed
     text = app.cache.get(key)
     if text is None:
         await callback.answer(STALE_QUERY_TEXT, show_alert=True)
@@ -65,6 +65,7 @@ async def on_page(callback: CallbackQuery, app: BotApp) -> None:
         app.matcher,
         app.cache,
         bucket=bucket,
+        offset=offset,
     )
     if isinstance(callback.message, Message):
         await callback.message.edit_text(reply.text, reply_markup=to_markup(reply))

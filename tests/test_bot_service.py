@@ -9,8 +9,10 @@ import pytest
 from cocktail.bot.service import (
     EMPTY_TEXT,
     NOTHING_TEXT,
+    PAGE_SIZE,
     Button,
     QueryCache,
+    Reply,
     build_reply,
     parse_callback,
     parse_have,
@@ -39,16 +41,21 @@ def test_parse_have(text: str, expected: list[str]) -> None:
 @pytest.mark.parametrize(
     ("data", "expected"),
     [
-        ("m0:abcd123456", (0, "abcd123456")),
-        ("m3:key", (3, "key")),
+        ("m0:abcd123456", (0, 0, "abcd123456")),
+        ("m3:key", (3, 0, "key")),
+        ("m2:key:8", (2, 8, "key")),
+        ("m1:key:0", (1, 0, "key")),
+        ("m1:key:-5", (1, 0, "key")),
         ("x0:key", None),
         ("m:key", None),
         ("m0:", None),
         ("mabc:key", None),
         ("m-1:key", None),
+        ("m1:key:abc", None),
+        ("m1:key:8:9", None),
     ],
 )
-def test_parse_callback(data: str, expected: tuple[int, str] | None) -> None:
+def test_parse_callback(data: str, expected: tuple[int, int, str] | None) -> None:
     assert parse_callback(data) == expected
 
 
@@ -206,11 +213,86 @@ def test_button_data_roundtrip(
     button = reply.rows[0][0]
     parsed = parse_callback(button.data)
     assert parsed is not None
-    bucket, key = parsed
+    bucket, offset, key = parsed
     # Текущая страница 0: готов Gin Tonic. Из остальных непустая только 2,
     # потому что Negroni не хватает двух ингредиентов.
     assert bucket == 2
+    assert offset == 0
     assert cache.get(key) == "джин, тоник, лайм"
+
+
+def test_pagination_shows_position(
+    many_cocktails: tuple[Cocktail, ...],
+    matcher: IngredientMatcher,
+) -> None:
+    reply = build_reply("джин", many_cocktails, matcher, QueryCache(), bucket=1)
+    assert "Показаны 1-8 из" in reply.text
+    assert reply.text.count("\n1. ") == 1
+    assert "9. " not in reply.text
+
+
+def test_forward_arrow_then_back(
+    many_cocktails: tuple[Cocktail, ...],
+    matcher: IngredientMatcher,
+) -> None:
+    cache = QueryCache()
+    first = build_reply("джин", many_cocktails, matcher, cache, bucket=1)
+    forward = _button(first, "вперёд ▶")
+    assert forward is not None
+    assert _button(first, "◀ назад") is None, "на первом листе назад идти некуда"
+
+    parsed = parse_callback(forward.data)
+    assert parsed is not None
+    bucket, offset, _key = parsed
+    assert offset == PAGE_SIZE
+
+    second = build_reply("джин", many_cocktails, matcher, cache, bucket=bucket, offset=offset)
+    assert "Показаны 9-16 из" in second.text
+    assert _button(second, "◀ назад") is not None
+
+    back = _button(second, "◀ назад")
+    assert back is not None
+    parsed_back = parse_callback(back.data)
+    assert parsed_back is not None
+    assert parsed_back[1] == 0
+
+
+def test_last_page_has_no_forward_arrow(
+    many_cocktails: tuple[Cocktail, ...],
+    matcher: IngredientMatcher,
+) -> None:
+    cache = QueryCache()
+    total = len(many_cocktails)
+    last_start = ((total - 1) // PAGE_SIZE) * PAGE_SIZE
+    reply = build_reply(
+        "джин",
+        many_cocktails,
+        matcher,
+        cache,
+        bucket=1,
+        offset=last_start,
+    )
+    assert _button(reply, "вперёд ▶") is None
+    assert _button(reply, "◀ назад") is not None
+
+
+def test_offset_is_clamped(
+    many_cocktails: tuple[Cocktail, ...],
+    matcher: IngredientMatcher,
+) -> None:
+    reply = build_reply("джин", many_cocktails, matcher, QueryCache(), bucket=1, offset=9999)
+    assert "из" in reply.text
+    assert "9999" not in reply.text
+
+
+def test_single_page_has_no_arrows(
+    cocktails: tuple[Cocktail, ...],
+    matcher: IngredientMatcher,
+) -> None:
+    reply = build_reply("джин, тоник", cocktails, matcher, QueryCache(), bucket=1)
+    assert _button(reply, "вперёд ▶") is None
+    assert _button(reply, "◀ назад") is None
+    assert "Показаны" not in reply.text
 
 
 def test_reply_is_clamped() -> None:
@@ -232,3 +314,11 @@ def test_button_is_frozen() -> None:
     button = Button(text="x", data="m0:key")
     with pytest.raises(FrozenInstanceError):
         button.text = "y"  # type: ignore[misc]
+
+
+def _button(reply: Reply, label: str) -> Button | None:
+    for row in reply.rows:
+        for button in row:
+            if button.text == label:
+                return button
+    return None
