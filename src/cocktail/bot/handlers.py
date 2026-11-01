@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 from aiogram import F, Router
+from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandStart
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
@@ -50,7 +51,7 @@ async def on_text(message: Message, app: BotApp) -> None:
         app.cache,
         translator=app.translator,
     )
-    await message.answer(reply.text, reply_markup=to_markup(reply))
+    await message.answer(reply.text, reply_markup=to_markup(reply), parse_mode=ParseMode.HTML)
 
 
 async def on_page(callback: CallbackQuery, app: BotApp) -> None:
@@ -75,7 +76,11 @@ async def on_page(callback: CallbackQuery, app: BotApp) -> None:
         offset=offset,
     )
     if isinstance(callback.message, Message):
-        await callback.message.edit_text(reply.text, reply_markup=to_markup(reply))
+        await callback.message.edit_text(
+            reply.text,
+            reply_markup=to_markup(reply),
+            parse_mode=ParseMode.HTML,
+        )
     await callback.answer()
 
 

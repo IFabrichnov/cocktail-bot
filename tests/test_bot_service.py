@@ -87,7 +87,7 @@ def test_reply_for_complete_match(
 ) -> None:
     reply = build_reply("джин, тоник, лайм", cocktails, matcher, QueryCache())
     assert "Gin Tonic" in reply.text
-    assert "всё есть" in reply.text
+    assert "Всё есть" in reply.text
     assert reply.has_buttons
 
 
@@ -103,7 +103,7 @@ def test_reply_counts_missing(
         bucket=2,
     )
     assert "Margarita" in reply.text
-    assert "докупить: Triple sec, Salt" in reply.text
+    assert "<b>Докупить:</b> Triple sec, Salt" in reply.text
 
 
 def test_reply_falls_back_when_nothing_exact(

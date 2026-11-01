@@ -86,7 +86,6 @@ NOTE_ONE_MISSING_EMPTY = "И с одним недостающим пусто. Д
 
 BACK_LABEL = "◀ назад"
 FORWARD_LABEL = "вперёд ▶"
-PAGES_HINT = "Стрелки листают список, кнопки внизу меняют, сколько нужно докупить."
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,9 +233,9 @@ def build_reply(
         _format_result(start + index, result, renderer) for index, result in enumerate(visible, 1)
     )
     message = (
-        f"Что можно сделать: {', '.join(have)}\n\n"
+        f"Что можно сделать: {_escape(', '.join(have))}\n\n"
         f"{note}{_header(current, len(page), start, len(visible))}\n\n"
-        f"{blocks}\n\n{PAGES_HINT}"
+        f"{blocks}"
     )
     rows = _bucket_rows(text, cache, current, pages) + _navigation_rows(
         text,
@@ -272,13 +271,15 @@ def _split_by_bucket(
 def _format_result(index: int, result: MatchResult, translator: Translator) -> str:
     """Карточка коктейля: название, полный состав, чего не хватает."""
     total = len(result.matched) + len(result.missing)
-    title = f"{index}. {_title(result.cocktail.name, translator)} - {len(result.matched)}/{total}"
+    name = _bold(_title(result.cocktail.name, translator))
+    matched = len(result.matched)
+    title = f"{index}. {name} - {matched}/{total}"
     composition = ", ".join(
         _unique(translator.ingredient(measure.ingredient) for measure in result.cocktail.measures)
     )
-    lines = [title, f"   {composition}"]
+    lines = [title, f"   <b>Состав:</b> {_escape(composition)}"]
     if not result.missing:
-        lines.append("   всё есть")
+        lines.append("   Всё есть")
         return "\n".join(lines)
 
     missing = ", ".join(
@@ -286,8 +287,22 @@ def _format_result(index: int, result: MatchResult, translator: Translator) -> s
     )
     if len(result.missing) > MISSING_INLINE:
         missing += f" и ещё {len(result.missing) - MISSING_INLINE}"
-    lines.append(f"   докупить: {missing}")
+    lines.append(f"   <b>Докупить:</b> {_escape(missing)}")
     return "\n".join(lines)
+
+
+def _escape(text: str) -> str:
+    """Экранировать текст для HTML-разметки Telegram.
+
+    Сообщения уходят с parse_mode=HTML, поэтому любые амперсанды и угловые
+    скобки - в том числе в названиях вроде «AT&T» и во вводе пользователя -
+    должны быть экранированы, иначе Telegram отклонит сообщение.
+    """
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _bold(text: str) -> str:
+    return f"<b>{_escape(text)}</b>"
 
 
 def _unique(names: Iterable[str]) -> list[str]:

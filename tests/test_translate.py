@@ -109,9 +109,9 @@ def test_card_shows_russian_name_and_composition(
         QueryCache(),
         translator=translator,
     )
-    assert "Gin Tonic (Джин-тоник)" in reply.text
+    assert "<b>Gin Tonic (Джин-тоник)</b>" in reply.text
     assert "джин, тоник, лайм" in reply.text
-    assert "всё есть" in reply.text
+    assert "Всё есть" in reply.text
 
 
 def test_card_without_translation_has_no_brackets(
@@ -128,7 +128,7 @@ def test_card_without_translation_has_no_brackets(
         bucket=2,
     )
     # Negroni перевода не имеет, поэтому скобок у него быть не должно.
-    assert "Negroni -" in reply.text
+    assert "<b>Negroni</b>" in reply.text
     assert "Negroni (" not in reply.text
 
 
@@ -145,4 +145,4 @@ def test_missing_line_is_translated(
         translator=translator,
         bucket=1,
     )
-    assert "докупить: лайм" in reply.text
+    assert "<b>Докупить:</b> лайм" in reply.text
