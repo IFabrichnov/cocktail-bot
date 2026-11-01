@@ -19,6 +19,17 @@ def test_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     assert config.aliases_path == Path("data/aliases.yaml")
     assert config.http_timeout == 20.0
     assert config.api_base_url.startswith("https://")
+    assert config.telegram_token is None
+
+
+def test_telegram_token_from_env() -> None:
+    config = Config.from_env({"TELEGRAM_BOT_TOKEN": " 123:abc "})
+    assert config.telegram_token == "123:abc"
+
+
+def test_empty_telegram_token_is_none() -> None:
+    assert Config.from_env({"TELEGRAM_BOT_TOKEN": "  "}).telegram_token is None
+    assert Config.from_env({}).telegram_token is None
 
 
 def test_env_override() -> None:

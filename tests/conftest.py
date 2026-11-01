@@ -9,7 +9,24 @@ from typing import Any
 import pytest
 
 from cocktail.models import Cocktail
+from cocktail.normalize import AliasBook
 from cocktail.parse import cocktail_from_raw
+from cocktail.search import IngredientMatcher
+
+
+@pytest.fixture
+def matcher() -> IngredientMatcher:
+    """Матчер с минимальным словарём русских синонимов."""
+    book = AliasBook(
+        entries={
+            "gin": ("джин",),
+            "tonic water": ("тоник",),
+            "lime": ("лайм",),
+            "tequila": ("текила",),
+            "lime juice": ("сок лайма",),
+        },
+    )
+    return IngredientMatcher(book)
 
 
 @pytest.fixture

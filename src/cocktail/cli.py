@@ -87,6 +87,13 @@ def build_parser() -> argparse.ArgumentParser:
     find_parser.add_argument("--limit", type=int, default=5, help="сколько результатов показать")
     find_parser.add_argument("--json", action="store_true", help="вывод в JSON")
 
+    bot_parser = subparsers.add_parser("bot", help="запустить Telegram-бота")
+    bot_parser.add_argument(
+        "--token",
+        default=None,
+        help="токен бота (по умолчанию из TELEGRAM_BOT_TOKEN)",
+    )
+
     return parser
 
 
@@ -105,6 +112,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _cmd_find(args)
         if args.command == "report":
             return _cmd_report(args)
+        if args.command == "bot":
+            return _cmd_bot(args)
     except CocktailError as exc:
         _fail(str(exc))
     except ValueError as exc:
@@ -181,6 +190,30 @@ def _cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_bot(args: argparse.Namespace) -> int:
+    config = _config(snapshot_override=None)
+    token = (args.token or config.telegram_token or "").strip()
+    if not token:
+        raise CocktailError(
+            "Нужен токен Telegram. Получи его у @BotFather и положи в .env "
+            "строкой TELEGRAM_BOT_TOKEN=..., либо передай флагом --token",
+        )
+
+    try:
+        from cocktail.bot.app import run
+    except ModuleNotFoundError as exc:
+        raise CocktailError(
+            'Для бота нужна зависимость aiogram: pip install -e ".[bot]"',
+        ) from exc
+
+    print(
+        f"Бот запущен на {config.snapshot_path}. Остановить: Ctrl+C",
+        file=sys.stderr,
+    )
+    run(token, config)
+    return 0
+
+
 def _config(snapshot_override: str | None) -> Config:
     config = Config.from_env()
     if snapshot_override is None:
@@ -191,6 +224,7 @@ def _config(snapshot_override: str | None) -> Config:
         aliases_path=config.aliases_path,
         api_base_url=config.api_base_url,
         http_timeout=config.http_timeout,
+        telegram_token=config.telegram_token,
     )
 
 

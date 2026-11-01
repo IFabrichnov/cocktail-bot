@@ -28,6 +28,7 @@ class Config:
     aliases_path: Path
     api_base_url: str = DEFAULT_API_BASE
     http_timeout: float = DEFAULT_TIMEOUT
+    telegram_token: str | None = None
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Config:
@@ -50,12 +51,16 @@ class Config:
             if timeout <= 0:
                 raise ConfigError("COCKTAIL_HTTP_TIMEOUT должен быть больше нуля")
 
+        raw_token = source.get("TELEGRAM_BOT_TOKEN")
+        telegram_token = raw_token.strip() if raw_token else None
+
         return cls(
             data_dir=data_dir,
             snapshot_path=snapshot_path,
             aliases_path=aliases_path,
             api_base_url=api_base_url.rstrip("/"),
             http_timeout=timeout,
+            telegram_token=telegram_token or None,
         )
 
 
