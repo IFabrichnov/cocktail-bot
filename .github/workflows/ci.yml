@@ -45,8 +45,12 @@ jobs:
         run: uv run pytest
 
       # Снапшот каталога коммитится в репозиторий, поэтому CLI проверяется
-      # на реальных данных без сети.
+      # на реальных данных без сети. Содержимое ответа проверяют тесты
+      # (tests/test_integration.py), здесь важно, что точки входа живы.
       - name: Smoke test CLI
+        env:
+          PYTHONIOENCODING: utf-8
         run: |
           uv run cocktail version
-          uv run cocktail find --have "джин, лайм, тоник" || echo "снапшот отсутствует - шаг пропущен"
+          uv run cocktail report
+          uv run cocktail find --have "джин, сок лайма, лайм, сахарный сироп"

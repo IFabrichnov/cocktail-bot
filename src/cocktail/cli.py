@@ -99,6 +99,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     load_dotenv()
+    _make_output_safe()
     parser = build_parser()
     args = parser.parse_args(argv)
     _configure_logging(verbose=bool(args.verbose))
@@ -114,6 +115,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _cmd_report(args)
         if args.command == "bot":
             return _cmd_bot(args)
+    except UnicodeError as exc:
+        # Сюда попадаем, только если поток всё-таки не удалось переключить
+        # на замену символов. Молча выходим с кодом ошибки, без трейсбека.
+        _write_raw(f"encoding error: {exc}")
+        return 1
     except CocktailError as exc:
         _fail(str(exc))
     except ValueError as exc:
@@ -282,12 +288,43 @@ def _match_to_dict(result: MatchResult) -> dict[str, object]:
     }
 
 
+def _make_output_safe() -> None:
+    """Не падать, если консоль не умеет в кириллицу.
+
+    На Windows с кодировкой cp1252 (например, на CI-раннере) печать русского
+    текста в перенаправленный поток поднимает UnicodeEncodeError, и команда
+    завершается трейсбеком вместо результата. Режим замены превращает такие
+    символы в знаки вопроса, сохраняя код возврата и остальной вывод.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(errors="replace")
+        except (ValueError, OSError):
+            continue
+
+
 def _configure_logging(*, verbose: bool) -> None:
     logging.basicConfig(
         level=logging.INFO if verbose else logging.WARNING,
         format="%(message)s",
         stream=sys.stderr,
     )
+
+
+def _write_raw(message: str) -> None:
+    """Записать в stderr в обход текстовой обёртки (последний рубеж)."""
+    data = (message + "\n").encode("ascii", "backslashreplace")
+    buffer = getattr(sys.stderr, "buffer", None)
+    if buffer is None:
+        return
+    try:
+        buffer.write(data)
+        buffer.flush()
+    except (OSError, ValueError):
+        return
 
 
 def _fail(message: str) -> NoReturn:

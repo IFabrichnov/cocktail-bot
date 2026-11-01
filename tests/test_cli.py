@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import io
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -100,3 +102,32 @@ def test_help_does_not_crash(capsys: pytest.CaptureFixture[str]) -> None:
         main(["--help"])
     assert exc_info.value.code == 0
     assert "find" in capsys.readouterr().out
+
+
+def test_cli_survives_ascii_console(
+    snapshot_file: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Консоль с cp1252 не должна ронять CLI трейсбеком.
+
+    Такое окружение есть на Windows-раннере GitHub Actions: русский текст
+    не кодируется, и раньше команда завершалась UnicodeEncodeError.
+    """
+    buffer = io.BytesIO()
+    stream = io.TextIOWrapper(
+        buffer,
+        encoding="cp1252",
+        errors="strict",
+        newline="",
+        write_through=True,
+    )
+    monkeypatch.setattr(sys, "stdout", stream)
+    monkeypatch.setattr(sys, "stderr", stream)
+
+    code = main(["--snapshot", str(snapshot_file), "find", "--have", "джин, тоник, лайм"])
+
+    assert code == 0
+    output = buffer.getvalue().decode("cp1252")
+    # Английские названия коктейлей видны всегда, кириллица заменена.
+    assert "Gin Tonic" in output
+    assert "?" in output
