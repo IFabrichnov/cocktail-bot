@@ -93,7 +93,7 @@ def test_reply_counts_missing(
         cocktails,
         matcher,
         QueryCache(),
-        max_missing=3,
+        bucket=2,
     )
     assert "Margarita" in reply.text
     assert "докупить: Triple sec, Salt" in reply.text
@@ -103,9 +103,34 @@ def test_reply_falls_back_when_nothing_exact(
     cocktails: tuple[Cocktail, ...],
     matcher: IngredientMatcher,
 ) -> None:
+    # Только джин: готовых нет, с одним недостающим тоже нет, поэтому
+    # бот показывает страницу «докупить 2» и говорит об этом.
     reply = build_reply("джин", cocktails, matcher, QueryCache())
-    assert "почти готово" in reply.text
+    assert "Готовых коктейлей нет" in reply.text
     assert "Gin Tonic" in reply.text or "Negroni" in reply.text
+
+
+def test_pages_differ(
+    cocktails: tuple[Cocktail, ...],
+    matcher: IngredientMatcher,
+) -> None:
+    # Главное требование к кнопкам: нажатие меняет содержимое, а не только
+    # заголовок. Джин и тоник дают Gimlet-подобный напиток на странице 1
+    # и Negroni на странице 2.
+    first = build_reply("джин, тоник", cocktails, matcher, QueryCache(), bucket=1)
+    second = build_reply("джин, тоник", cocktails, matcher, QueryCache(), bucket=2)
+    assert "Gin Tonic" in first.text
+    assert "Negroni" in second.text
+    assert "Negroni" not in first.text
+
+
+def test_bucket_is_clamped(
+    cocktails: tuple[Cocktail, ...],
+    matcher: IngredientMatcher,
+) -> None:
+    # Раньше кнопка умела «докупить 3», теперь такого нет.
+    reply = build_reply("джин, тоник", cocktails, matcher, QueryCache(), bucket=99)
+    assert "Докупить 2" in reply.text
 
 
 def test_reply_when_nothing_at_all(
@@ -114,7 +139,8 @@ def test_reply_when_nothing_at_all(
 ) -> None:
     reply = build_reply("unobtainium", cocktails, matcher, QueryCache())
     assert reply.text == NOTHING_TEXT
-    assert reply.has_buttons
+    # Все страницы пусты, поэтому кнопок нет: вести пользователя некуда.
+    assert not reply.has_buttons
 
 
 def test_reply_on_empty_input(
@@ -126,22 +152,49 @@ def test_reply_on_empty_input(
     assert not reply.has_buttons
 
 
-def test_buttons_offer_other_limits(
+def test_buttons_offer_other_pages(
     cocktails: tuple[Cocktail, ...],
     matcher: IngredientMatcher,
 ) -> None:
     cache = QueryCache()
-    # При пороге 1 Gin Tonic подходит (не хватает только лайма), поэтому
-    # автофолбэк не срабатывает и текущий порог остаётся 1.
-    reply = build_reply("джин, тоник", cocktails, matcher, cache, max_missing=1)
+    # На странице 1 Gin Tonic подходит (не хватает только лайма).
+    # Страница 0 пуста (готовых нет), поэтому кнопки «только своё» нет:
+    # она вела бы на пустой экран.
+    reply = build_reply("джин, тоник", cocktails, matcher, cache, bucket=1)
     buttons = [button for row in reply.rows for button in row]
-    assert [button.text for button in buttons] == [
-        "докупить 0",
-        "докупить 2",
-        "докупить 3",
-    ]
+    assert [button.text for button in buttons] == ["докупить 2"]
     assert all(button.data.startswith("m") for button in buttons)
     assert len(buttons[0].data.encode("utf-8")) <= 64
+
+
+def test_buttons_never_lead_to_empty_page(
+    cocktails: tuple[Cocktail, ...],
+    matcher: IngredientMatcher,
+) -> None:
+    cache = QueryCache()
+    for bucket in (0, 1, 2):
+        reply = build_reply("джин, тоник", cocktails, matcher, cache, bucket=bucket)
+        for button in (button for row in reply.rows for button in row):
+            target = int(button.data[1:].split(":")[0])
+            follow_up = build_reply(
+                "джин, тоник",
+                cocktails,
+                matcher,
+                cache,
+                bucket=target,
+            )
+            assert follow_up.text != NOTHING_TEXT
+
+
+def test_no_button_for_three(
+    cocktails: tuple[Cocktail, ...],
+    matcher: IngredientMatcher,
+) -> None:
+    cache = QueryCache()
+    for bucket in (0, 1, 2):
+        reply = build_reply("джин, тоник", cocktails, matcher, cache, bucket=bucket)
+        texts = [button.text for row in reply.rows for button in row]
+        assert "докупить 3" not in texts
 
 
 def test_button_data_roundtrip(
@@ -153,9 +206,10 @@ def test_button_data_roundtrip(
     button = reply.rows[0][0]
     parsed = parse_callback(button.data)
     assert parsed is not None
-    max_missing, key = parsed
-    # Текущий порог 0, поэтому первая кнопка предлагает 1.
-    assert max_missing == 1
+    bucket, key = parsed
+    # Текущая страница 0: готов Gin Tonic. Из остальных непустая только 2,
+    # потому что Negroni не хватает двух ингредиентов.
+    assert bucket == 2
     assert cache.get(key) == "джин, тоник, лайм"
 
 

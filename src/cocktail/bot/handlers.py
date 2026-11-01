@@ -1,4 +1,10 @@
-"""Обработчики Telegram. Тонкий слой: вся логика в service.py."""
+"""Обработчики Telegram. Тонкий слой: вся логика в service.py.
+
+Роутер собирается функцией, а не создаётся один раз на импорте: один и тот же
+объект ``Router`` нельзя подключить к двум диспетчерам, а диспетчеры нужны
+и в тестах, и при повторной инициализации. Явная регистрация обработчиков
+заодно делает порядок фильтров видимым.
+"""
 
 from __future__ import annotations
 
@@ -11,54 +17,46 @@ from cocktail.bot.service import (
     ABOUT_TEXT,
     HELP_TEXT,
     START_TEXT,
-    Button,
     Reply,
     build_reply,
     parse_callback,
 )
 
-router = Router(name="cocktail")
-
 UNKNOWN_COMMAND_TEXT = "Не знаю такой команды. /help покажет, что я умею."
+STALE_QUERY_TEXT = "Запрос устарел. Пришли ингредиенты заново."
 
 
-@router.message(CommandStart())
 async def on_start(message: Message) -> None:
     await message.answer(START_TEXT)
 
 
-@router.message(Command("help"))
 async def on_help(message: Message) -> None:
     await message.answer(HELP_TEXT)
 
 
-@router.message(Command("about"))
 async def on_about(message: Message) -> None:
     await message.answer(ABOUT_TEXT)
 
 
-@router.message(F.text.startswith("/"))
 async def on_unknown_command(message: Message) -> None:
     await message.answer(UNKNOWN_COMMAND_TEXT)
 
 
-@router.message(F.text)
 async def on_text(message: Message, app: BotApp) -> None:
     reply = build_reply(message.text or "", app.cocktails, app.matcher, app.cache)
     await message.answer(reply.text, reply_markup=to_markup(reply))
 
 
-@router.callback_query(F.data.startswith("m"))
-async def on_more(callback: CallbackQuery, app: BotApp) -> None:
+async def on_page(callback: CallbackQuery, app: BotApp) -> None:
     parsed = parse_callback(callback.data or "")
     if parsed is None:
         await callback.answer()
         return
 
-    max_missing, key = parsed
+    bucket, key = parsed
     text = app.cache.get(key)
     if text is None:
-        await callback.answer("Запрос устарел. Пришли ингредиенты заново.", show_alert=True)
+        await callback.answer(STALE_QUERY_TEXT, show_alert=True)
         return
 
     reply = build_reply(
@@ -66,11 +64,27 @@ async def on_more(callback: CallbackQuery, app: BotApp) -> None:
         app.cocktails,
         app.matcher,
         app.cache,
-        max_missing=max_missing,
+        bucket=bucket,
     )
     if isinstance(callback.message, Message):
         await callback.message.edit_text(reply.text, reply_markup=to_markup(reply))
     await callback.answer()
+
+
+def build_router() -> Router:
+    """Собрать роутер с обработчиками.
+
+    Порядок важен: команды регистрируются раньше общего текстового фильтра,
+    иначе ``/help`` попал бы в обработчик ингредиентов.
+    """
+    router = Router(name="cocktail")
+    router.message.register(on_start, CommandStart())
+    router.message.register(on_help, Command("help"))
+    router.message.register(on_about, Command("about"))
+    router.message.register(on_unknown_command, F.text.startswith("/"))
+    router.message.register(on_text, F.text)
+    router.callback_query.register(on_page, F.data.startswith("m"))
+    return router
 
 
 def to_markup(reply: Reply) -> InlineKeyboardMarkup | None:
@@ -84,4 +98,4 @@ def to_markup(reply: Reply) -> InlineKeyboardMarkup | None:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-__all__ = ["Button", "router", "to_markup"]
+__all__ = ["build_router", "to_markup"]

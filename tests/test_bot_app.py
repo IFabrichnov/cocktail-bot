@@ -36,9 +36,9 @@ def test_to_markup_builds_inline_keyboard(
     markup = to_markup(reply)
     assert markup is not None
     button = markup.inline_keyboard[0][0]
-    assert button.text == "докупить 1"
+    assert button.text == "докупить 2"
     assert button.callback_data is not None
-    assert button.callback_data.startswith("m1:")
+    assert button.callback_data.startswith("m2:")
 
 
 def test_to_markup_is_none_without_buttons() -> None:

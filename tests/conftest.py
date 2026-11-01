@@ -14,6 +14,17 @@ from cocktail.parse import cocktail_from_raw
 from cocktail.search import IngredientMatcher
 
 
+@pytest.fixture(autouse=True)
+def _isolate_dotenv(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Не читать локальный .env в тестах.
+
+    У разработчика в .env может лежать настоящий TELEGRAM_BOT_TOKEN, и тогда
+    тест на «бот без токена» полез бы в Telegram. Тесты не должны зависеть
+    от личных файлов, а запуск бота проверяется вручную.
+    """
+    monkeypatch.setattr("cocktail.cli.load_dotenv", lambda *args, **kwargs: None)
+
+
 @pytest.fixture
 def matcher() -> IngredientMatcher:
     """Матчер с минимальным словарём русских синонимов."""

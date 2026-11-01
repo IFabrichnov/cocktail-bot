@@ -18,10 +18,10 @@ from cocktail.search import IngredientMatcher, MatchResult, find
 
 #: Сколько коктейлей показываем в одном ответе.
 MAX_ITEMS = 5
-#: Варианты кнопки «сколько готов докупить».
-MAX_MISSING_CHOICES = (0, 1, 2, 3)
-#: Если точных совпадений нет, пробуем этот порог автоматически.
-FALLBACK_MAX_MISSING = 2
+#: Три страницы подбора: готово сейчас, докупить один, докупить два.
+BUCKETS = (0, 1, 2)
+#: Подписи кнопок-переключателей.
+BUCKET_LABELS = {0: "только своё", 1: "докупить 1", 2: "докупить 2"}
 #: Telegram ограничивает сообщение 4096 символами, оставляем запас.
 TEXT_LIMIT = 3800
 #: Предел запоминаемых запросов для кнопок.
@@ -43,9 +43,10 @@ HELP_TEXT = (
     "Как это работает.\n\n"
     "1. Ты присылаешь список ингредиентов через запятую.\n"
     "2. Я ищу коктейли, которые из них получаются.\n"
-    "3. Если чего-то не хватает, показываю чего именно.\n\n"
-    "По умолчанию показываю только то, что можно сделать прямо сейчас. "
-    "Кнопки под ответом разрешают докупить один, два или три ингредиента.\n\n"
+    "3. Показываю три страницы: что готово прямо сейчас, что можно собрать, "
+    "докупив один ингредиент, и что можно собрать, докупив два.\n\n"
+    "Кнопки под ответом переключают страницы. «Только своё» - строгое "
+    "условие, без покупок.\n\n"
     "Названия сопоставляются по словарю синонимов: «сок лайма», «lime juice» "
     "и «Lime Juice» - это один ингредиент, а «лайм» и «сок лайма» - разные.\n\n"
     "Количества не учитываются: если у тебя есть джин, а в рецепте нужно "
@@ -63,10 +64,14 @@ ABOUT_TEXT = (
 EMPTY_TEXT = "Не вижу ингредиентов. Пришли список через запятую, например:\nджин, лайм, тоник"
 
 NOTHING_TEXT = (
-    "Ничего не нашлось. Попробуй другие ингредиенты или разреши докупить пару позиций кнопкой ниже."
+    "Ничего не нашлось даже с двумя докупками. Попробуй другие ингредиенты "
+    "или пришли более короткий список."
 )
 
 TRUNCATED_SUFFIX = "\n\nСписок длинный, показал первые варианты."
+
+NOTE_NO_READY = "Готовых коктейлей нет. Показываю ближайшее:"
+NOTE_ONE_MISSING_EMPTY = "И с одним недостающим пусто. Дальше только с двумя:"
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,7 +136,7 @@ def parse_have(text: str) -> list[str]:
 
 
 def parse_callback(data: str) -> tuple[int, str] | None:
-    """Разобрать callback_data вида ``m2:abcd123456``."""
+    """Разобрать callback_data вида ``m1:abcd123456``."""
     prefix, separator, rest = data.partition(":")
     if not separator or not prefix.startswith("m"):
         return None
@@ -139,12 +144,12 @@ def parse_callback(data: str) -> tuple[int, str] | None:
     if not key:
         return None
     try:
-        max_missing = int(prefix[1:])
+        bucket = int(prefix[1:])
     except ValueError:
         return None
-    if max_missing < 0:
+    if bucket < 0:
         return None
-    return max_missing, key
+    return bucket, key
 
 
 def build_reply(
@@ -153,48 +158,68 @@ def build_reply(
     matcher: IngredientMatcher,
     cache: QueryCache,
     *,
-    max_missing: int = 0,
+    bucket: int = 0,
 ) -> Reply:
-    """Собрать ответ на пользовательский текст."""
+    """Собрать ответ на пользовательский текст.
+
+    :param bucket: страница подбора - 0 (готово сейчас), 1 или 2 (сколько
+        ингредиентов разрешено докупить). Если для страницы ничего нет, бот
+        сам переходит к следующей и говорит об этом: молчаливое «ничего не
+        найдено» раздражает сильнее, чем честное «покажу ближайшее».
+    """
     have = parse_have(text)
     if not have:
         return Reply(text=EMPTY_TEXT)
 
+    requested = _clamp_bucket(bucket)
+    pages = _split_by_bucket(cocktails, have, matcher)
+    current = requested
+
+    while not pages[current]:
+        following = [candidate for candidate in BUCKETS if candidate > current]
+        if not following:
+            break
+        current = following[0]
+
+    page = pages[current]
+    if not page:
+        return Reply(text=NOTHING_TEXT)
+
+    note = ""
+    if current != requested:
+        note = NOTE_NO_READY if requested == 0 else NOTE_ONE_MISSING_EMPTY
+        note += "\n\n"
+
+    blocks = "\n\n".join(
+        _format_result(index, result) for index, result in enumerate(page[:MAX_ITEMS], 1)
+    )
+    message = (
+        f"Что можно сделать: {', '.join(have)}\n\n"
+        f"{note}{_header(current, len(page))}\n\n"
+        f"{blocks}\n\nКнопки ниже переключают страницы."
+    )
+    return Reply(text=_clamp(message), rows=_bucket_rows(text, cache, current, pages))
+
+
+def _split_by_bucket(
+    cocktails: Sequence[Cocktail],
+    have: Sequence[str],
+    matcher: IngredientMatcher,
+) -> dict[int, list[MatchResult]]:
+    """Разложить результаты по страницам: 0, 1 или 2 недостающих."""
     results = find(
         cocktails,
         have,
         matcher=matcher,
-        max_missing=max_missing,
-        limit=MAX_ITEMS,
+        max_missing=max(BUCKETS),
+        limit=None,
     )
-    note = ""
-    if not results and max_missing < FALLBACK_MAX_MISSING:
-        max_missing = FALLBACK_MAX_MISSING
-        results = find(
-            cocktails,
-            have,
-            matcher=matcher,
-            max_missing=max_missing,
-            limit=MAX_ITEMS,
-        )
-        if results:
-            note = "Точных совпадений нет. Вот что почти готово:\n\n"
-
-    if not results:
-        return Reply(text=NOTHING_TEXT, rows=_missing_rows(text, cache, max_missing))
-
-    header = f"Что можно сделать: {', '.join(have)}\n\n"
-    body = "\n\n".join(_format_result(index, result) for index, result in enumerate(results, 1))
-    footer = (
-        "\n\nЕсли чего-то не хватает, разреши докупить кнопкой ниже."
-        if any(result.missing for result in results)
-        else ""
-    )
-    message = f"{header}{note}{body}{footer}"
-    return Reply(
-        text=_clamp(message),
-        rows=_missing_rows(text, cache, max_missing),
-    )
+    pages: dict[int, list[MatchResult]] = {bucket: [] for bucket in BUCKETS}
+    for result in results:
+        missing = len(result.missing)
+        if missing in pages:
+            pages[missing].append(result)
+    return pages
 
 
 def _format_result(index: int, result: MatchResult) -> str:
@@ -208,20 +233,39 @@ def _format_result(index: int, result: MatchResult) -> str:
     return f"{head}\n   докупить: {missing}"
 
 
-def _missing_rows(
+def _header(bucket: int, total: int) -> str:
+    if bucket == 0:
+        return f"Готово к приготовлению: {total}"
+    noun = "ингредиент" if bucket == 1 else "ингредиента"
+    return f"Докупить {bucket} {noun}: {total}"
+
+
+def _bucket_rows(
     text: str,
     cache: QueryCache,
     current: int,
+    pages: dict[int, list[MatchResult]],
 ) -> tuple[tuple[Button, ...], ...]:
-    """Кнопки-переключатели порога «сколько докупить»."""
-    choices = [choice for choice in MAX_MISSING_CHOICES if choice != current]
-    if not choices:
+    """Кнопки-переключатели страниц.
+
+    Пустые страницы не показываем: кнопка, ведущая на пустоту, выглядит
+    сломанной, а после автоперехода она ещё и возвращает туда же, откуда
+    пользователь только что пришёл.
+    """
+    others = [bucket for bucket in BUCKETS if bucket != current and pages[bucket]]
+    if not others:
         return ()
     key = cache.put(text)
     buttons = tuple(
-        Button(text=f"докупить {choice}", data=f"m{choice}:{key}") for choice in choices
+        Button(text=BUCKET_LABELS[bucket], data=f"m{bucket}:{key}") for bucket in others
     )
     return (buttons,)
+
+
+def _clamp_bucket(bucket: int) -> int:
+    if bucket in BUCKETS:
+        return bucket
+    return min(max(bucket, min(BUCKETS)), max(BUCKETS))
 
 
 def _clamp(message: str) -> str:

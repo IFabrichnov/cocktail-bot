@@ -12,7 +12,7 @@ import logging
 
 from aiogram import Bot, Dispatcher
 
-from cocktail.bot.handlers import router
+from cocktail.bot.handlers import build_router
 from cocktail.bot.runtime import BotApp
 from cocktail.config import Config
 from cocktail.errors import ConfigError
@@ -21,10 +21,14 @@ LOGGER = logging.getLogger(__name__)
 
 
 def create_dispatcher(app: BotApp) -> Dispatcher:
-    """Собрать диспетчер: состояние прокидывается в обработчики как ``app``."""
+    """Собрать диспетчер: состояние прокидывается в обработчики как ``app``.
+
+    Роутер создаётся заново на каждый вызов: подключить один и тот же объект
+    к двум диспетчерам aiogram не даёт, а диспетчеры нужны и в тестах.
+    """
     dispatcher = Dispatcher()
     dispatcher["app"] = app
-    dispatcher.include_router(router)
+    dispatcher.include_router(build_router())
     return dispatcher
 
 
