@@ -1,0 +1,537 @@
+# Переводы для отображения. Не путать с aliases.yaml:
+#   aliases.yaml  - синонимы для ПОИСКА (пользователь пишет «джин»);
+#   translations  - подписи для ВЫВОДА (в чате показываем «джин»).
+#
+# Правило: нет перевода - в чате остаётся оригинал, скобки не рисуются.
+# Придумывать перевод ради красоты не нужно: лучше английское название,
+# чем выдуманное русское.
+#
+# Ключи - как в каталоге TheCocktailDB, регистр не важен.
+
+version: 1
+
+ingredients:
+  # --- крепкий алкоголь ------------------------------------------------------
+  gin: джин
+  vodka: водка
+  rum: ром
+  light rum: светлый ром
+  white rum: белый ром
+  dark rum: тёмный ром
+  spiced rum: пряный ром
+  gold rum: золотой ром
+  añejo rum: ром аньехо
+  blackstrap rum: блэкстрэп ром
+  151 proof rum: ром 151°
+  malibu rum: ром малибу
+  tequila: текила
+  mezcal: мескаль
+  whiskey: виски
+  whisky: виски
+  bourbon: бурбон
+  scotch: шотландский виски
+  blended scotch: купажированный скотч
+  blended whiskey: купажированный виски
+  irish whiskey: ирландский виски
+  rye whiskey: ржаной виски
+  tennessee whiskey: виски из Теннесси
+  islay single malt scotch: односолодовый скотч с Айлы
+  brandy: бренди
+  cognac: коньяк
+  apple brandy: яблочный бренди
+  applejack: эплджек
+  apricot brandy: абрикосовый бренди
+  blackberry brandy: ежевичный бренди
+  cherry brandy: вишнёвый бренди
+  coffee brandy: кофейный бренди
+  peach brandy: персиковый бренди
+  pisco: писко
+  cachaca: кашаса
+  absinthe: абсент
+  everclear: эверклер
+  grain alcohol: зерновой спирт
+  firewater: файрвотер
+  sloe gin: сли-джин
+  vermouth: вермут
+  dry vermouth: сухой вермут
+  sweet vermouth: сладкий вермут
+  rosso vermouth: красный вермут
+  lillet: лиллет
+  lillet blanc: лиллет блан
+  dubonnet rouge: дюбонне руж
+  champagne: шампанское
+  prosecco: просекко
+  port: портвейн
+  ruby port: рубиновый портвейн
+  sherry: херес
+  red wine: красное вино
+  white wine: белое вино
+  wine: вино
+  beer: пиво
+  lager: лагер
+  guinness stout: гиннесс
+  cider: сидр
+  sake: саке
+
+  # --- ликёры и биттеры ------------------------------------------------------
+  amaretto: амаретто
+  triple sec: трипл сек
+  cointreau: куантро
+  grand marnier: гран марнье
+  kahlua: калуа
+  baileys irish cream: бейлис
+  irish cream: ирландский ликёр
+  coffee liqueur: кофейный ликёр
+  tia maria: тиа мария
+  creme de cacao: крем де какао
+  dark creme de cacao: тёмный крем де какао
+  creme de banane: крем де банан
+  creme de cassis: крем де кассис
+  creme de mure: крем де мюр
+  blue curacao: голубой кюрасао
+  orange curacao: апельсиновый кюрасао
+  campari: кампари
+  aperol: апероль
+  amaro montenegro: амаро монтенегро
+  galliano: гальяно
+  sambuca: самбука
+  black sambuca: чёрная самбука
+  anisette: анизетт
+  anis: анис
+  benedictine: бенедиктин
+  drambuie: драмбуи
+  frangelico: франжелико
+  midori melon liqueur: мидори
+  melon liqueur: дынный ликёр
+  peach schnapps: персиковый шнапс
+  strawberry schnapps: клубничный шнапс
+  blueberry schnapps: черничный шнапс
+  butterscotch schnapps: ирисковый шнапс
+  peachtree schnapps: пичтри
+  pisang ambon: писанг амбон
+  passoa: пассоа
+  maraschino liqueur: ликёр мараскино
+  cherry heering: херинг
+  cherry liqueur: вишнёвый ликёр
+  strawberry liqueur: клубничный ликёр
+  raspberry liqueur: малиновый ликёр
+  chambord raspberry liqueur: шамбор
+  banana liqueur: банановый ликёр
+  kiwi liqueur: ликёр киви
+  coconut liqueur: кокосовый ликёр
+  chocolate liqueur: шоколадный ликёр
+  godiva liqueur: годова
+  green chartreuse: зелёный шартрез
+  yellow chartreuse: жёлтый шартрез
+  white creme de menthe: белый крем де мент
+  green creme de menthe: зелёный крем де мент
+  southern comfort: саузерн комфорт
+  goldschlager: гольдшлегер
+  jägermeister: егермейстер
+  jagermeister: егермейстер
+  pernod: перно
+  ouzo: узо
+  ricard: рикар
+  advocaat: адвокат
+  rumple minze: румпль минце
+  yukon jack: юкон джек
+  hot damn: хот дам
+  lemon-lime soda: лимонад-лайм газировка
+
+  # --- биттеры ---------------------------------------------------------------
+  bitters: биттер
+  angostura bitters: биттер ангостура
+  orange bitters: апельсиновый биттер
+  peach bitters: персиковый биттер
+  peychaud bitters: биттер пешо
+
+  # --- соки и газировки ------------------------------------------------------
+  lemon juice: сок лимона
+  fresh lemon juice: свежевыжатый сок лимона
+  lime juice: сок лайма
+  fresh lime juice: свежевыжатый сок лайма
+  orange juice: апельсиновый сок
+  pineapple juice: ананасовый сок
+  cranberry juice: клюквенный сок
+  grapefruit juice: грейпфрутовый сок
+  tomato juice: томатный сок
+  apple juice: яблочный сок
+  grape juice: виноградный сок
+  pomegranate juice: гранатовый сок
+  cherry juice: вишнёвый сок
+  passion fruit juice: сок маракуйи
+  fruit juice: фруктовый сок
+  soda water: содовая
+  club soda: содовая
+  carbonated water: газированная вода
+  carbonated soft drink: газированный напиток
+  tonic water: тоник
+  bitter lemon: биттер лемон
+  ginger ale: имбирный эль
+  ginger beer: имбирное пиво
+  root beer: рутбир
+  coca-cola: кока-кола
+  pepsi cola: пепси-кола
+  sprite: спрайт
+  7-up: 7up
+  dr. pepper: д-р пеппер
+  mountain dew: маунтин дью
+  surge: сёрдж
+  zima: зима
+  fresca: фреска
+  schweppes russchian: швеппс русчян
+  kool-aid: кул-эйд
+  sarsaparilla: сарсапарилла
+  grape soda: виноградная газировка
+  lemonade: лимонад
+  pink lemonade: розовый лимонад
+  limeade: лаймовый лимонад
+  orangeade: апельсиновый лимонад
+  iced tea: холодный чай
+  tea: чай
+  coffee: кофе
+  espresso: эспрессо
+  water: вода
+
+  # --- фрукты и ягоды --------------------------------------------------------
+  lemon: лимон
+  lime: лайм
+  orange: апельсин
+  blood orange: красный апельсин
+  pineapple: ананас
+  apple: яблоко
+  banana: банан
+  mango: манго
+  kiwi: киви
+  papaya: папайя
+  peach: персик
+  cherry: вишня
+  cherries: вишни
+  maraschino cherry: коктейльная вишня
+  strawberry: клубника
+  strawberries: клубника
+  blackberries: ежевика
+  raspberry: малина
+  blueberry: черника
+  blackcurrant cordial: сироп чёрной смородины
+  rose: роза
+  figs: инжир
+  fruit: фрукты
+  olive: оливка
+  cucumber: огурец
+
+  # --- цедра и украшения -----------------------------------------------------
+  lemon peel: лимонная цедра
+  lime peel: цедра лайма
+  orange peel: апельсиновая цедра
+  orange spiral: спираль апельсиновой цедры
+  olive brine: рассол от оливок
+
+  # --- сахар, сиропы, сладости -----------------------------------------------
+  sugar: сахар
+  brown sugar: коричневый сахар
+  demerara sugar: сахар демирара
+  powdered sugar: сахарная пудра
+  sugar syrup: сахарный сироп
+  honey: мёд
+  honey syrup: медовый сироп
+  maple syrup: кленовый сироп
+  agave syrup: сироп агавы
+  corn syrup: кукурузный сироп
+  grenadine: гренадин
+  orgeat syrup: миндальный сироп
+  falernum: фалернум
+  vanilla: ваниль
+  vanilla extract: ванильный экстракт
+  vanilla syrup: ванильный сироп
+  coconut syrup: кокосовый сироп
+  pineapple syrup: ананасовый сироп
+  raspberry syrup: малиновый сироп
+  strawberry syrup: клубничный сироп
+  mint syrup: мятный сироп
+  ginger syrup: имбирный сироп
+  rosemary syrup: сироп розмарина
+  passion fruit syrup: сироп маракуйи
+  elderflower cordial: сироп бузины
+  sirup of roses: розовый сироп
+  roses sweetened lime juice: сладкий сок лайма
+  sweet and sour: кисло-сладкий микс
+  sour mix: сауэр-микс
+  pina colada mix: микс пина колады
+  daiquiri mix: микс дайкири
+  chocolate syrup: шоколадный сироп
+  chocolate: шоколад
+  hot chocolate: горячий шоколад
+  cocoa powder: какао-порошок
+  jello: желе
+  marshmallows: маршмеллоу
+  oreo cookie: печенье орео
+  sherbet: щербет
+  vanilla ice-cream: ванильное мороженое
+
+  # --- молочное --------------------------------------------------------------
+  milk: молоко
+  condensed milk: сгущённое молоко
+  cream: сливки
+  heavy cream: жирные сливки
+  light cream: нежирные сливки
+  whipping cream: сливки для взбивания
+  whipped cream: взбитые сливки
+  half-and-half: смесь сливок и молока
+  yoghurt: йогурт
+  cream of coconut: кокосовые сливки
+  coconut milk: кокосовое молоко
+  butter: сливочное масло
+  egg: яйцо
+  egg white: яичный белок
+  egg yolk: яичный желток
+
+  # --- пропущенное на первом проходе -----------------------------------------
+  ice: лёд
+  apfelkorn: яблочный корн
+  apricot nectar: абрикосовый нектар
+  peach nectar: персиковый нектар
+  fruit punch: фруктовый пунш
+  cranberry vodka: клюквенная водка
+  lime vodka: лаймовая водка
+  peach vodka: персиковая водка
+  raspberry vodka: малиновая водка
+  vanilla vodka: ванильная водка
+
+  # --- специи и добавки ------------------------------------------------------
+  salt: соль
+  celery salt: сельдерейная соль
+  pepper: перец
+  black pepper: чёрный перец
+  cayenne pepper: кайенский перец
+  cumin seed: семена зиры
+  nutmeg: мускатный орех
+  cinnamon: корица
+  cloves: гвоздика
+  cardamom: кардамон
+  coriander: кориандр
+  allspice: душистый перец
+  red chili flakes: хлопья чили
+  asafoetida: асафетида
+  tabasco sauce: соус табаско
+  hot sauce: острый соус
+  worcestershire sauce: вустерский соус
+  soy sauce: соевый соус
+  mint: мята
+  rosemary: розмарин
+  thyme: тимьян
+  lavender: лаванда
+  ginger: имбирь
+  wormwood: полынь
+  almond flavoring: миндальная эссенция
+  caramel coloring: карамельный колер
+
+  # --- бренды ----------------------------------------------------------------
+  jack daniels: джек дэниелс
+  jim beam: джим бим
+  johnnie walker: джонни уокер
+  wild turkey: вайлд терки
+  crown royal: краун ройал
+  absolut vodka: абсолут
+  absolut citron: абсолут цитрон
+  absolut peppar: абсолут пеппар
+  absolut kurant: абсолут курант
+  bacardi limon: бакарди лимон
+  corona: корона
+  guinness: гиннесс
+  st. germain: сент-жермен
+  kool first aid: кул фёрст эйд
+
+cocktails:
+  # Классика и то, в чём я уверен. Для остальных названий скобок не будет:
+  # придумывать перевод «Zizi Coin-coin» ради единообразия не стоит.
+  Alexander: Александр
+  Americano: Американо
+  Aviation: Авиация
+  B-52: Б-52
+  B-53: Б-53
+  Bahama Mama: Багама-мама
+  Bellini: Беллини
+  Bramble: Брамбл
+  Caipirinha: Кайпиринья
+  Caipirissima: Кайпириссима
+  Cosmopolitan: Космополитен
+  Cuba Libre: Куба либре
+  Cuba Libra: Куба либре
+  Daiquiri: Дайкири
+  Dark and Stormy: Дарк-н-сторми
+  Dry Martini: Сухой мартини
+  Dirty Martini: Грязный мартини
+  Espresso Martini: Эспрессо мартини
+  French 75: Француз 75
+  French Martini: Французский мартини
+  French Negroni: Французский негрони
+  Frozen Daiquiri: Замороженный дайкири
+  Gimlet: Гимлет
+  Gin and Soda: Джин с содовой
+  Gin Fizz: Джин-физз
+  Gin Rickey: Джин-рики
+  Gin Sling: Джин-слинг
+  Gin Sour: Джин-сауэр
+  Gin Toddy: Джин-тодди
+  Gin Tonic: Джин-тоник
+  Grasshopper: Грассхоппер
+  Greyhound: Грейхаунд
+  Harvey Wallbanger: Харви Волбэнгер
+  Hemingway Special: Хемингуэй спешиал
+  Hot Toddy: Горячий тодди
+  Iced Coffee: Холодный кофе
+  Irish Coffee: Ирландский кофе
+  Irish Cream: Ирландский крем
+  Irish Russian: Ирландский русский
+  Jamaican Coffee: Ямайский кофе
+  Kamikaze: Камикадзе
+  Kir: Кир
+  Kir Royale: Кир ройяль
+  Lemon Drop: Лемон дроп
+  Long Island Iced Tea: Лонг-Айленд айс ти
+  Long Island Tea: Лонг-Айленд
+  Mai Tai: Май-тай
+  Manhattan: Манхэттен
+  Margarita: Маргарита
+  Martini: Мартини
+  Mary Pickford: Мэри Пикфорд
+  Michelada: Мичелада
+  Mimosa: Мимоза
+  Mint Julep: Мятный джулеп
+  Mojito: Мохито
+  Mojito Extra: Мохито экстра
+  Mango Mojito: Манго-мохито
+  Monkey Gland: Обезьянья железа
+  Moscow Mule: Московский мул
+  Mulled Wine: Глинтвейн
+  Gluehwein: Глинтвейн
+  Negroni: Негрони
+  New York Sour: Нью-Йорк сауэр
+  Old Cuban: Олд кубан
+  Old Fashioned: Олд фэшн
+  Old Pal: Олд пэл
+  Paloma: Палома
+  Paradise: Рай
+  Penicillin: Пенициллин
+  Pina Colada: Пина колада
+  Pink Gin: Пинк джин
+  Pink Lady: Пинк леди
+  Pisco Sour: Писко сауэр
+  Planter's Punch: Плантерс панч
+  Planter’s Punch: Плантерс панч
+  Pornstar Martini: Порнстар мартини
+  Ramos Gin Fizz: Рамос джин-физз
+  Red Snapper: Ред снеппер
+  Rose: Розе
+  Royal Flush: Роял флаш
+  Rum Cooler: Ромовый кулер
+  Rum Punch: Ромовый пунш
+  Rum Runner: Рам раннер
+  Rum Sour: Ромовый сауэр
+  Rum Toddy: Ромовый тодди
+  Russian Spring Punch: Русский весенний пунш
+  Rusty Nail: Расти-нейл
+  Salty Dog: Солёный пёс
+  San Francisco: Сан-Франциско
+  Sangria: Сангрия
+  Sweet Sangria: Сладкая сангрия
+  White Wine Sangria: Сангрия из белого вина
+  Sazerac: Сазерак
+  Scooter: Скутер
+  Scotch Sour: Скотч-сауэр
+  Screwdriver: Отвёртка
+  Sea breeze: Морской бриз
+  Sherry Flip: Херес-флип
+  Sidecar: Сайдкар
+  Snowball: Снежок
+  Spritz: Шприц
+  Stone Sour: Стоун-сауэр
+  Stinger: Стингер
+  Tequila Fizz: Текила-физз
+  Tequila Slammer: Текила-слэммер
+  Tequila Sour: Текила-сауэр
+  Tequila Sunrise: Текила-санрайз
+  The Last Word: Последнее слово
+  Tipperary: Типперари
+  Tom Collins: Том Коллинз
+  John Collins: Джон Коллинз
+  Turf Cocktail: Тёрф
+  Tuxedo Cocktail: Таксидо
+  Vampiro: Вампиро
+  Vesper: Веспер
+  Vodka And Tonic: Водка с тоником
+  Vodka Martini: Водка-мартини
+  Vodka Tonic: Водка-тоник
+  Whiskey Sour: Виски-сауэр
+  Whisky Mac: Виски-мак
+  White Lady: Уайт-леди
+  White Russian: Белый русский
+  Wine Cooler: Винный кулер
+  Wine Punch: Винный пунш
+  Yellow Bird: Жёлтая птица
+  Zipperhead: Зипперхед
+  Zombie: Зомби
+  Zorbatini: Зорбатини
+  Godfather: Крёстный отец
+  Godmother: Крёстная мать
+  Godchild: Крёстное дитя
+  Jack Rose Cocktail: Джек Роуз
+  Jello shots: Желе-шоты
+  Lunch Box: Ланч-бокс
+  Masala Chai: Масала-чай
+  Thai Iced Tea: Тайский холодный чай
+  Thai Iced Coffee: Тайский холодный кофе
+  Frappé: Фраппе
+  Radler: Радлер
+  Lassi - Sweet: Ласси сладкий
+  Lassi - Mango: Ласси манговый
+  Lassi Raita: Ласси райта
+  Chocolate Milk: Шоколадное молоко
+  Chocolate Drink: Шоколадный напиток
+  Drinking Chocolate: Питьевой шоколад
+  Coffee Liqueur: Кофейный ликёр
+  Cream Soda: Крем-сода
+  "Egg Nog #4": Эгг-ног
+  Egg-Nog - Classic Cooked: Эгг-ног классический
+  Apello: Апелло
+  Barracuda: Барракуда
+  Bijou: Бижу
+  Bluebird: Блюберд
+  Boomerang: Бумеранг
+  Brooklyn: Бруклин
+  Casino: Казино
+  Clover Club: Клевер-клуб
+  Corpse Reviver: Реаниматор
+  Derby: Дерби
+  Dragonfly: Драгонфлай
+  English Highball: Английский хайбол
+  Foxy Lady: Фокси-леди
+  French Connection: Французская связь
+  Fruit Punch: Фруктовый пунш
+  Imperial Cocktail: Имперский коктейль
+  Jackhammer: Джекхаммер
+  Kentucky Colonel: Кентукки-полковник
+  London Town: Лондон-таун
+  Miami Vice: Майами-вайс
+  New York Lemonade: Нью-йоркский лимонад
+  Orange Crush: Орандж-краш
+  Pink Moon: Розовая луна
+  Port Wine Cocktail: Коктейль с портвейном
+  Quarter Deck Cocktail: Коктейль «Квартердек»
+  Royal Fizz: Роял-физз
+  Ruby Tuesday: Руби-тюсдей
+  Smut: Смат
+  Snowday: Сноудей
+  Sol Y Sombra: Соль и тень
+  Space Odyssey: Космическая одиссея
+  Sweet Tooth: Сладкоежка
+  The Galah: Гала
+  The Philosopher: Философ
+  Thriller: Триллер
+  Victory Collins: Виктори-коллинз
+  Waikiki Beachcomber: Вайкики-бичкомбер
+  Whitecap Margarita: Маргарита с белой шапкой
+  Zinger: Зингер
+  Zoksel: Зоксель
+  Zorro: Зорро

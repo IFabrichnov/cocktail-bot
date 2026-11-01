@@ -43,7 +43,13 @@ async def on_unknown_command(message: Message) -> None:
 
 
 async def on_text(message: Message, app: BotApp) -> None:
-    reply = build_reply(message.text or "", app.cocktails, app.matcher, app.cache)
+    reply = build_reply(
+        message.text or "",
+        app.cocktails,
+        app.matcher,
+        app.cache,
+        translator=app.translator,
+    )
     await message.answer(reply.text, reply_markup=to_markup(reply))
 
 
@@ -64,6 +70,7 @@ async def on_page(callback: CallbackQuery, app: BotApp) -> None:
         app.cocktails,
         app.matcher,
         app.cache,
+        translator=app.translator,
         bucket=bucket,
         offset=offset,
     )

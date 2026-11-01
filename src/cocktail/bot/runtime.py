@@ -15,6 +15,7 @@ from cocktail.models import Cocktail
 from cocktail.normalize import AliasBook, load_aliases
 from cocktail.search import IngredientMatcher
 from cocktail.store import load_snapshot
+from cocktail.translate import Translator, load_translations
 
 from .service import QueryCache
 
@@ -26,17 +27,19 @@ class BotApp:
     cocktails: Sequence[Cocktail]
     matcher: IngredientMatcher
     cache: QueryCache = field(default_factory=QueryCache)
+    translator: Translator = field(default_factory=Translator.empty)
     snapshot_path: Path | None = None
 
     @classmethod
     def load(cls, config: Config) -> BotApp:
-        """Прочитать снапшот и словарь алиасов с диска."""
+        """Прочитать снапшот, словарь алиасов и переводы с диска."""
         snapshot = load_snapshot(config.snapshot_path)
         book: AliasBook = load_aliases(config.aliases_path)
         return cls(
             cocktails=snapshot.cocktails(),
             matcher=IngredientMatcher(book),
             cache=QueryCache(),
+            translator=load_translations(config.translations_path),
             snapshot_path=config.snapshot_path,
         )
 

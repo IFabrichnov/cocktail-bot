@@ -226,9 +226,9 @@ def test_pagination_shows_position(
     matcher: IngredientMatcher,
 ) -> None:
     reply = build_reply("джин", many_cocktails, matcher, QueryCache(), bucket=1)
-    assert "Показаны 1-8 из" in reply.text
-    assert reply.text.count("\n1. ") == 1
-    assert "9. " not in reply.text
+    assert f"Показаны 1-{PAGE_SIZE} из" in reply.text
+    assert "\n1. " in reply.text
+    assert f"\n{PAGE_SIZE + 1}. " not in reply.text
 
 
 def test_forward_arrow_then_back(
@@ -247,7 +247,7 @@ def test_forward_arrow_then_back(
     assert offset == PAGE_SIZE
 
     second = build_reply("джин", many_cocktails, matcher, cache, bucket=bucket, offset=offset)
-    assert "Показаны 9-16 из" in second.text
+    assert f"Показаны {PAGE_SIZE + 1}-{2 * PAGE_SIZE} из" in second.text
     assert _button(second, "◀ назад") is not None
 
     back = _button(second, "◀ назад")

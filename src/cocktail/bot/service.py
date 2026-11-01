@@ -18,14 +18,17 @@ from __future__ import annotations
 
 import hashlib
 from collections import OrderedDict
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 from cocktail.models import Cocktail
 from cocktail.search import IngredientMatcher, MatchResult, find
+from cocktail.translate import Translator
 
 #: Сколько карточек показываем на одном листе.
-PAGE_SIZE = 8
+#: Карточка занимает три строки (название, состав, докупка), поэтому лист
+#: короче, чем был: пять карточек остаются читаемыми на телефоне.
+PAGE_SIZE = 5
 #: Три страницы подбора: готово сейчас, докупить один, докупить два.
 BUCKETS = (0, 1, 2)
 #: Подписи кнопок-переключателей страниц.
@@ -188,6 +191,7 @@ def build_reply(
     matcher: IngredientMatcher,
     cache: QueryCache,
     *,
+    translator: Translator | None = None,
     bucket: int = 0,
     offset: int = 0,
 ) -> Reply:
@@ -225,8 +229,9 @@ def build_reply(
         note = NOTE_NO_READY if requested == 0 else NOTE_ONE_MISSING_EMPTY
         note += "\n\n"
 
+    renderer = translator or Translator.empty()
     blocks = "\n\n".join(
-        _format_result(start + index, result) for index, result in enumerate(visible, 1)
+        _format_result(start + index, result, renderer) for index, result in enumerate(visible, 1)
     )
     message = (
         f"Что можно сделать: {', '.join(have)}\n\n"
@@ -264,15 +269,49 @@ def _split_by_bucket(
     return pages
 
 
-def _format_result(index: int, result: MatchResult) -> str:
+def _format_result(index: int, result: MatchResult, translator: Translator) -> str:
+    """Карточка коктейля: название, полный состав, чего не хватает."""
     total = len(result.matched) + len(result.missing)
-    head = f"{index}. {result.cocktail.name} - {len(result.matched)}/{total}"
+    title = f"{index}. {_title(result.cocktail.name, translator)} - {len(result.matched)}/{total}"
+    composition = ", ".join(
+        _unique(translator.ingredient(measure.ingredient) for measure in result.cocktail.measures)
+    )
+    lines = [title, f"   {composition}"]
     if not result.missing:
-        return f"{head}\n   всё есть"
-    missing = ", ".join(result.missing[:MISSING_INLINE])
+        lines.append("   всё есть")
+        return "\n".join(lines)
+
+    missing = ", ".join(
+        _unique(translator.ingredient(item) for item in result.missing[:MISSING_INLINE])
+    )
     if len(result.missing) > MISSING_INLINE:
         missing += f" и ещё {len(result.missing) - MISSING_INLINE}"
-    return f"{head}\n   докупить: {missing}"
+    lines.append(f"   докупить: {missing}")
+    return "\n".join(lines)
+
+
+def _unique(names: Iterable[str]) -> list[str]:
+    """Убрать повторы, сохранив порядок.
+
+    В каталоге один ингредиент может встречаться дважды: у Whiskey Sour
+    лимон указан и как «сок половины», и как «половина слайса». Для состава
+    это шум, поэтому в карточке он показывается один раз.
+    """
+    seen: set[str] = set()
+    result: list[str] = []
+    for name in names:
+        key = name.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(name)
+    return result
+
+
+def _title(name: str, translator: Translator) -> str:
+    """Название с переводом в скобках, если перевод есть."""
+    translated = translator.cocktail(name)
+    return f"{name} ({translated})" if translated else name
 
 
 def _header(bucket: int, total: int, start: int, shown: int) -> str:

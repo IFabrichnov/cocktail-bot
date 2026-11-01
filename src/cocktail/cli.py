@@ -30,6 +30,7 @@ from cocktail.normalize import load_aliases
 from cocktail.report import IngredientReport, build_report
 from cocktail.search import IngredientMatcher, MatchResult, find
 from cocktail.store import build_snapshot, load_snapshot, save_snapshot
+from cocktail.translate import TranslationCoverage, coverage, load_translations
 
 LOGGER = logging.getLogger("cocktail")
 
@@ -186,13 +187,19 @@ def _cmd_find(args: argparse.Namespace) -> int:
 def _cmd_report(args: argparse.Namespace) -> int:
     config = _config(snapshot_override=args.snapshot)
     snapshot = load_snapshot(config.snapshot_path)
-    report = build_report(snapshot.cocktails(), top=args.top)
+    cocktails = snapshot.cocktails()
+    report = build_report(cocktails, top=args.top)
+    translator = load_translations(config.translations_path)
+    translation = coverage(cocktails, translator)
 
     if args.json:
-        print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
+        payload = report.to_dict()
+        payload["translations"] = translation.to_dict()
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
 
     print(_format_report(report))
+    print(_format_coverage(translation))
     return 0
 
 
@@ -248,6 +255,18 @@ def _format_match(index: int, result: MatchResult) -> str:
     ]
     if result.missing:
         lines.append(f"   нужно докупить: {', '.join(result.missing)}")
+    return "\n".join(lines)
+
+
+def _format_coverage(coverage_stats: TranslationCoverage) -> str:
+    lines = [
+        "",
+        f"Перевод ингредиентов: {coverage_stats.unique_ingredients_translated}"
+        f" из {coverage_stats.unique_ingredients} названий,"
+        f" {coverage_stats.ingredient_rows_ratio:.1%} строк",
+        f"Перевод коктейлей: {coverage_stats.cocktails_translated}"
+        f" из {coverage_stats.cocktails} ({coverage_stats.cocktails_ratio:.1%})",
+    ]
     return "\n".join(lines)
 
 

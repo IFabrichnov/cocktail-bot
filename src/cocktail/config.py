@@ -16,6 +16,7 @@ from cocktail.errors import ConfigError
 
 DEFAULT_API_BASE = "https://www.thecocktaildb.com/api/json/v1/1"
 DEFAULT_DATA_DIR = Path("data") / "raw"
+DEFAULT_TRANSLATIONS = Path("data") / "translations.yaml"
 DEFAULT_TIMEOUT = 20.0
 
 
@@ -29,6 +30,7 @@ class Config:
     api_base_url: str = DEFAULT_API_BASE
     http_timeout: float = DEFAULT_TIMEOUT
     telegram_token: str | None = None
+    translations_path: Path = DEFAULT_TRANSLATIONS
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Config:
@@ -36,6 +38,9 @@ class Config:
         data_dir = Path(source.get("COCKTAIL_DATA_DIR", str(DEFAULT_DATA_DIR)))
         snapshot_path = Path(source.get("COCKTAIL_SNAPSHOT", str(data_dir / "cocktails.json")))
         aliases_path = Path(source.get("COCKTAIL_ALIASES", "data/aliases.yaml"))
+        translations_path = Path(
+            source.get("COCKTAIL_TRANSLATIONS", str(DEFAULT_TRANSLATIONS)),
+        )
         api_base_url = source.get("COCKTAIL_API_BASE", DEFAULT_API_BASE).strip()
         if not api_base_url.startswith(("http://", "https://")):
             raise ConfigError(f"COCKTAIL_API_BASE должен быть http(s)-URL: {api_base_url!r}")
@@ -61,6 +66,7 @@ class Config:
             api_base_url=api_base_url.rstrip("/"),
             http_timeout=timeout,
             telegram_token=telegram_token or None,
+            translations_path=translations_path,
         )
 
 
