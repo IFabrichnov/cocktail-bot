@@ -10,8 +10,15 @@ from __future__ import annotations
 
 from aiogram import F, Router
 from aiogram.enums import ParseMode
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandStart
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    InputMediaPhoto,
+    Message,
+)
 
 from cocktail.bot.runtime import BotApp
 from cocktail.bot.service import (
@@ -71,27 +78,46 @@ async def deliver(message: Message, reply: Reply) -> None:
 async def replace(message: Message, reply: Reply) -> None:
     """Обновить уже отправленное сообщение, не плодя новые.
 
-    У сообщения с фотографией редактируется подпись, у текстового - текст.
-    Если карточка появляется там, где фото не было (например, после
+    Если в сообщении уже есть фотография, меняется именно она:
+    ``edit_caption`` меняет только подпись, и картинка осталась бы от
+    предыдущего коктейля. Когда фото в новой карточке нет, правится подпись,
+    а когда карточка появляется там, где фото не было (например, после
     «ничего не нашлось»), её придётся отправить отдельным сообщением:
     заменить текст сообщением с фото Telegram не позволяет.
     """
     markup = to_markup(reply)
-    if message.photo:
-        await message.edit_caption(
-            caption=reply.text,
+    try:
+        if message.photo:
+            if reply.photo:
+                await message.edit_media(
+                    media=InputMediaPhoto(
+                        media=reply.photo,
+                        caption=reply.text,
+                        parse_mode=ParseMode.HTML,
+                    ),
+                    reply_markup=markup,
+                )
+            else:
+                await message.edit_caption(
+                    caption=reply.text,
+                    reply_markup=markup,
+                    parse_mode=ParseMode.HTML,
+                )
+            return
+        if reply.photo:
+            await deliver(message, reply)
+            return
+        await message.edit_text(
+            reply.text,
             reply_markup=markup,
             parse_mode=ParseMode.HTML,
         )
-        return
-    if reply.photo:
-        await deliver(message, reply)
-        return
-    await message.edit_text(
-        reply.text,
-        reply_markup=markup,
-        parse_mode=ParseMode.HTML,
-    )
+    except TelegramBadRequest as error:
+        # Быстрое двойное нажатие может привести к тому же содержимому:
+        # Telegram отвечает «message is not modified», это не ошибка.
+        if "message is not modified" in str(error).lower():
+            return
+        raise
 
 
 async def on_page(callback: CallbackQuery, app: BotApp) -> None:
