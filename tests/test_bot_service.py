@@ -9,7 +9,6 @@ import pytest
 from cocktail.bot.service import (
     EMPTY_TEXT,
     NOTHING_TEXT,
-    PAGE_SIZE,
     Button,
     QueryCache,
     Reply,
@@ -221,14 +220,14 @@ def test_button_data_roundtrip(
     assert cache.get(key) == "джин, тоник, лайм"
 
 
-def test_pagination_shows_position(
+def test_caption_shows_position(
     many_cocktails: tuple[Cocktail, ...],
     matcher: IngredientMatcher,
 ) -> None:
     reply = build_reply("джин", many_cocktails, matcher, QueryCache(), bucket=1)
-    assert f"Показаны 1-{PAGE_SIZE} из" in reply.text
-    assert "\n1. " in reply.text
-    assert f"\n{PAGE_SIZE + 1}. " not in reply.text
+    assert "Коктейль 1 из 20" in reply.text
+    # На сообщении одна карточка, а не список.
+    assert reply.text.count("<b>Test ") == 1
 
 
 def test_forward_arrow_then_back(
@@ -239,15 +238,15 @@ def test_forward_arrow_then_back(
     first = build_reply("джин", many_cocktails, matcher, cache, bucket=1)
     forward = _button(first, "вперёд ▶")
     assert forward is not None
-    assert _button(first, "◀ назад") is None, "на первом листе назад идти некуда"
+    assert _button(first, "◀ назад") is None, "на первой карточке назад идти некуда"
 
     parsed = parse_callback(forward.data)
     assert parsed is not None
     bucket, offset, _key = parsed
-    assert offset == PAGE_SIZE
+    assert offset == 1, "стрелка листает по одной карточке"
 
     second = build_reply("джин", many_cocktails, matcher, cache, bucket=bucket, offset=offset)
-    assert f"Показаны {PAGE_SIZE + 1}-{2 * PAGE_SIZE} из" in second.text
+    assert "Коктейль 2 из 20" in second.text
     assert _button(second, "◀ назад") is not None
 
     back = _button(second, "◀ назад")
@@ -257,23 +256,23 @@ def test_forward_arrow_then_back(
     assert parsed_back[1] == 0
 
 
-def test_last_page_has_no_forward_arrow(
+def test_last_card_has_no_forward_arrow(
     many_cocktails: tuple[Cocktail, ...],
     matcher: IngredientMatcher,
 ) -> None:
     cache = QueryCache()
     total = len(many_cocktails)
-    last_start = ((total - 1) // PAGE_SIZE) * PAGE_SIZE
     reply = build_reply(
         "джин",
         many_cocktails,
         matcher,
         cache,
         bucket=1,
-        offset=last_start,
+        offset=total - 1,
     )
     assert _button(reply, "вперёд ▶") is None
     assert _button(reply, "◀ назад") is not None
+    assert f"Коктейль {total} из {total}" in reply.text
 
 
 def test_offset_is_clamped(
@@ -281,18 +280,49 @@ def test_offset_is_clamped(
     matcher: IngredientMatcher,
 ) -> None:
     reply = build_reply("джин", many_cocktails, matcher, QueryCache(), bucket=1, offset=9999)
-    assert "из" in reply.text
+    assert "Коктейль 20 из 20" in reply.text
     assert "9999" not in reply.text
 
 
-def test_single_page_has_no_arrows(
+def test_single_result_has_no_position_and_arrows(
     cocktails: tuple[Cocktail, ...],
     matcher: IngredientMatcher,
 ) -> None:
     reply = build_reply("джин, тоник", cocktails, matcher, QueryCache(), bucket=1)
     assert _button(reply, "вперёд ▶") is None
     assert _button(reply, "◀ назад") is None
-    assert "Показаны" not in reply.text
+    assert "Коктейль" not in reply.text
+
+
+def test_reply_carries_photo(
+    cocktails: tuple[Cocktail, ...],
+    matcher: IngredientMatcher,
+) -> None:
+    reply = build_reply("джин, тоник", cocktails, matcher, QueryCache(), bucket=1)
+    assert reply.photo == "https://example.test/gin-tonic.jpg"
+
+
+def test_reply_without_photo_falls_back_to_text(
+    cocktails: tuple[Cocktail, ...],
+    matcher: IngredientMatcher,
+) -> None:
+    reply = build_reply("unobtainium", cocktails, matcher, QueryCache())
+    assert reply.photo is None
+
+
+def test_caption_is_clamped() -> None:
+    matcher = IngredientMatcher(AliasBook(entries={"gin": ("джин",)}))
+    long_name = "Коктейль " + "очень длинное название " * 60
+    many = tuple(
+        Cocktail(
+            id=str(index),
+            name=f"{long_name} {index}",
+            measures=(IngredientMeasure(ingredient="Gin", raw="Gin"),),
+        )
+        for index in range(3)
+    )
+    reply = build_reply("джин", many, matcher, QueryCache())
+    assert len(reply.text) <= 1000
 
 
 def test_reply_is_clamped() -> None:

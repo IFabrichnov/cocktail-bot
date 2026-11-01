@@ -51,7 +51,47 @@ async def on_text(message: Message, app: BotApp) -> None:
         app.cache,
         translator=app.translator,
     )
-    await message.answer(reply.text, reply_markup=to_markup(reply), parse_mode=ParseMode.HTML)
+    await deliver(message, reply)
+
+
+async def deliver(message: Message, reply: Reply) -> None:
+    """Отправить новое сообщение: с фотографией, если она есть."""
+    markup = to_markup(reply)
+    if reply.photo:
+        await message.answer_photo(
+            photo=reply.photo,
+            caption=reply.text,
+            reply_markup=markup,
+            parse_mode=ParseMode.HTML,
+        )
+        return
+    await message.answer(reply.text, reply_markup=markup, parse_mode=ParseMode.HTML)
+
+
+async def replace(message: Message, reply: Reply) -> None:
+    """Обновить уже отправленное сообщение, не плодя новые.
+
+    У сообщения с фотографией редактируется подпись, у текстового - текст.
+    Если карточка появляется там, где фото не было (например, после
+    «ничего не нашлось»), её придётся отправить отдельным сообщением:
+    заменить текст сообщением с фото Telegram не позволяет.
+    """
+    markup = to_markup(reply)
+    if message.photo:
+        await message.edit_caption(
+            caption=reply.text,
+            reply_markup=markup,
+            parse_mode=ParseMode.HTML,
+        )
+        return
+    if reply.photo:
+        await deliver(message, reply)
+        return
+    await message.edit_text(
+        reply.text,
+        reply_markup=markup,
+        parse_mode=ParseMode.HTML,
+    )
 
 
 async def on_page(callback: CallbackQuery, app: BotApp) -> None:
@@ -75,12 +115,9 @@ async def on_page(callback: CallbackQuery, app: BotApp) -> None:
         bucket=bucket,
         offset=offset,
     )
-    if isinstance(callback.message, Message):
-        await callback.message.edit_text(
-            reply.text,
-            reply_markup=to_markup(reply),
-            parse_mode=ParseMode.HTML,
-        )
+    message = callback.message
+    if isinstance(message, Message):
+        await replace(message, reply)
     await callback.answer()
 
 
@@ -111,4 +148,4 @@ def to_markup(reply: Reply) -> InlineKeyboardMarkup | None:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-__all__ = ["build_router", "to_markup"]
+__all__ = ["build_router", "deliver", "replace", "to_markup"]

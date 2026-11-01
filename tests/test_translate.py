@@ -126,8 +126,10 @@ def test_card_without_translation_has_no_brackets(
         QueryCache(),
         translator=translator,
         bucket=2,
+        offset=1,
     )
-    # Negroni перевода не имеет, поэтому скобок у него быть не должно.
+    # Вторая карточка страницы - Negroni, перевода у него нет,
+    # поэтому скобок быть не должно.
     assert "<b>Negroni</b>" in reply.text
     assert "Negroni (" not in reply.text
 

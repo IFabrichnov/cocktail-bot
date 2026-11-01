@@ -25,10 +25,9 @@ from cocktail.models import Cocktail
 from cocktail.search import IngredientMatcher, MatchResult, find
 from cocktail.translate import Translator
 
-#: Сколько карточек показываем на одном листе.
-#: Карточка занимает три строки (название, состав, докупка), поэтому лист
-#: короче, чем был: пять карточек остаются читаемыми на телефоне.
-PAGE_SIZE = 5
+#: Одна карточка = одно сообщение с фотографией.
+#: Telegram ограничивает подпись к фото 1024 символами, оставляем запас.
+CAPTION_LIMIT = 1000
 #: Три страницы подбора: готово сейчас, докупить один, докупить два.
 BUCKETS = (0, 1, 2)
 #: Подписи кнопок-переключателей страниц.
@@ -102,6 +101,7 @@ class Reply:
 
     text: str
     rows: tuple[tuple[Button, ...], ...] = ()
+    photo: str | None = None
 
     @property
     def has_buttons(self) -> bool:
@@ -220,8 +220,8 @@ def build_reply(
     if not page:
         return Reply(text=NOTHING_TEXT)
 
-    start = _clamp_offset(offset, len(page))
-    visible = page[start : start + PAGE_SIZE]
+    index = _clamp_offset(offset, len(page))
+    result = page[index]
 
     note = ""
     if current != requested:
@@ -229,22 +229,19 @@ def build_reply(
         note += "\n\n"
 
     renderer = translator or Translator.empty()
-    blocks = "\n\n".join(
-        _format_result(start + index, result, renderer) for index, result in enumerate(visible, 1)
-    )
     message = (
         f"Что можно сделать: {_escape(', '.join(have))}\n\n"
-        f"{note}{_header(current, len(page), start, len(visible))}\n\n"
-        f"{blocks}"
+        f"{note}{_header(current, len(page), index)}\n\n"
+        f"{_format_result(result, renderer)}"
     )
     rows = _bucket_rows(text, cache, current, pages) + _navigation_rows(
         text,
         cache,
         current,
-        start,
+        index,
         len(page),
     )
-    return Reply(text=_clamp(message), rows=rows)
+    return Reply(text=_clamp_caption(message), rows=rows, photo=result.cocktail.image)
 
 
 def _split_by_bucket(
@@ -268,12 +265,12 @@ def _split_by_bucket(
     return pages
 
 
-def _format_result(index: int, result: MatchResult, translator: Translator) -> str:
+def _format_result(result: MatchResult, translator: Translator) -> str:
     """Карточка коктейля: название, полный состав, чего не хватает."""
     total = len(result.matched) + len(result.missing)
     name = _bold(_title(result.cocktail.name, translator))
     matched = len(result.matched)
-    title = f"{index}. {name} - {matched}/{total}"
+    title = f"{name} - {matched}/{total}"
     composition = ", ".join(
         _unique(translator.ingredient(measure.ingredient) for measure in result.cocktail.measures)
     )
@@ -329,14 +326,14 @@ def _title(name: str, translator: Translator) -> str:
     return f"{name} ({translated})" if translated else name
 
 
-def _header(bucket: int, total: int, start: int, shown: int) -> str:
+def _header(bucket: int, total: int, index: int) -> str:
     if bucket == 0:
         title = f"Готово к приготовлению: {total}"
     else:
         noun = "ингредиент" if bucket == 1 else "ингредиента"
         title = f"Докупить {bucket} {noun}: {total}"
-    if total > PAGE_SIZE:
-        title += f"\nПоказаны {start + 1}-{start + shown} из {total}"
+    if total > 1:
+        title += f"\nКоктейль {index + 1} из {total}"
     return title
 
 
@@ -366,25 +363,23 @@ def _navigation_rows(
     text: str,
     cache: QueryCache,
     bucket: int,
-    start: int,
+    index: int,
     total: int,
 ) -> tuple[tuple[Button, ...], ...]:
-    """Стрелки листания внутри страницы.
+    """Стрелки листания: по одной карточке в каждую сторону.
 
     Кнопка появляется только если в ту сторону действительно есть карточки:
     стрелка, которая ничего не делает, хуже отсутствующей.
     """
-    if total <= PAGE_SIZE:
+    if total <= 1:
         return ()
 
     key = cache.put(text)
     buttons: list[Button] = []
-    if start > 0:
-        previous = max(0, start - PAGE_SIZE)
-        buttons.append(Button(text=BACK_LABEL, data=f"m{bucket}:{key}:{previous}"))
-    if start + PAGE_SIZE < total:
-        following = start + PAGE_SIZE
-        buttons.append(Button(text=FORWARD_LABEL, data=f"m{bucket}:{key}:{following}"))
+    if index > 0:
+        buttons.append(Button(text=BACK_LABEL, data=f"m{bucket}:{key}:{index - 1}"))
+    if index + 1 < total:
+        buttons.append(Button(text=FORWARD_LABEL, data=f"m{bucket}:{key}:{index + 1}"))
     if not buttons:
         return ()
     return (tuple(buttons),)
@@ -397,15 +392,14 @@ def _clamp_bucket(bucket: int) -> int:
 
 
 def _clamp_offset(offset: int, total: int) -> int:
-    """Привести смещение к существующему листy."""
+    """Привести смещение к существующей карточке."""
     if offset <= 0 or total <= 0:
         return 0
-    if offset >= total:
-        return max(0, ((total - 1) // PAGE_SIZE) * PAGE_SIZE)
-    return offset
+    return min(offset, total - 1)
 
 
-def _clamp(message: str) -> str:
-    if len(message) <= TEXT_LIMIT:
+def _clamp_caption(message: str) -> str:
+    """Уложиться в лимит подписи к фотографии."""
+    if len(message) <= CAPTION_LIMIT:
         return message
-    return message[: TEXT_LIMIT - len(TRUNCATED_SUFFIX)].rstrip() + TRUNCATED_SUFFIX
+    return message[: CAPTION_LIMIT - len(TRUNCATED_SUFFIX)].rstrip() + TRUNCATED_SUFFIX

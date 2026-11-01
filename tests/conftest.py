@@ -52,6 +52,7 @@ def raw_drinks() -> list[dict[str, Any]]:
             "strGlass": "Highball glass",
             "strInstructions": "Build over ice.",
             "strTags": "IBA,Classic",
+            "strDrinkThumb": "https://example.test/gin-tonic.jpg",
             "strIngredient1": "Gin",
             "strMeasure1": "2 oz",
             "strIngredient2": "Tonic water",
