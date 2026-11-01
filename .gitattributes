@@ -1,0 +1,13 @@
+# Нормализация переводов строк: в репозитории всегда LF.
+* text=auto eol=lf
+
+*.py text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+Makefile text eol=lf
+
+# Снапшот данных - однострочный JSON с отступами: он текстовый и диффится.
+data/raw/*.json text eol=lf

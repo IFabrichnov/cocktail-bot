@@ -1,0 +1,43 @@
+# --- Окружение ---------------------------------------------------------------
+.venv/
+venv/
+.env
+
+# --- Python ------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.pytest-tmp/
+.tmp/
+pytest-of-*/
+pytest-cache-files-*/
+uv.lock.bak
+
+# --- Редакторы и ОС ----------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Данные ------------------------------------------------------------------
+# Снапшот каталога коктейлей (data/raw/*.json) коммитится сознательно:
+# он нужен для воспроизводимости и офлайн-тестов. Всё остальное - мусор.
+data/raw/*.tmp
+data/raw/*.log
+data/*.sqlite
+data/*.db
