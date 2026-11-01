@@ -276,10 +276,7 @@ def _format_result(result: MatchResult, translator: Translator) -> str:
     name = _bold(_title(result.cocktail.name, translator))
     matched = len(result.matched)
     title = f"{name} - {matched}/{total}"
-    composition = ", ".join(
-        _unique(translator.ingredient(measure.ingredient) for measure in result.cocktail.measures)
-    )
-    lines = [title, f"<b>Состав:</b> {_escape(composition)}"]
+    lines = [title, f"<b>Состав:</b> {_escape(_composition(result, translator))}"]
     if not result.missing:
         lines.append("Всё есть")
         return "\n".join(lines)
@@ -291,6 +288,29 @@ def _format_result(result: MatchResult, translator: Translator) -> str:
         missing += f" и ещё {len(result.missing) - MISSING_INLINE}"
     lines.append(f"<b>Докупить:</b> {_escape(missing)}")
     return "\n".join(lines)
+
+
+def _composition(result: MatchResult, translator: Translator) -> str:
+    """Состав строкой: русское название и оригинал в скобках.
+
+    Английское имя оставляем рядом, потому что по нему ищут и по нему же
+    сверяются с меню и магазином. Если перевода нет, скобки не рисуются:
+    дублировать одно и то же незачем.
+    """
+    parts: list[str] = []
+    seen: set[str] = set()
+    for measure in result.cocktail.measures:
+        original = measure.ingredient
+        key = original.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        translated = translator.ingredient(original)
+        if translated.casefold() == original.casefold():
+            parts.append(original)
+        else:
+            parts.append(f"{translated} ({original})")
+    return ", ".join(parts)
 
 
 def _escape(text: str) -> str:

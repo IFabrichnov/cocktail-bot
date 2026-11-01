@@ -110,8 +110,27 @@ def test_card_shows_russian_name_and_composition(
         translator=translator,
     )
     assert "<b>Gin Tonic (Джин-тоник)</b>" in reply.text
-    assert "джин, тоник, лайм" in reply.text
+    assert "<b>Состав:</b> джин (Gin), тоник (Tonic water), лайм (Lime)" in reply.text
     assert "Всё есть" in reply.text
+
+
+def test_untranslated_ingredient_has_no_parentheses(
+    cocktails: tuple[Cocktail, ...],
+    translator: Translator,
+) -> None:
+    matcher = IngredientMatcher(AliasBook(entries={"gin": ("джин",)}))
+    reply = build_reply(
+        "джин, тоник, лайм",
+        cocktails,
+        matcher,
+        QueryCache(),
+        translator=translator,
+        bucket=2,
+        offset=1,
+    )
+    # Negroni: Campari и Sweet Vermouth перевода не имеют, скобок быть не должно.
+    assert "Campari" in reply.text
+    assert "Campari (" not in reply.text
 
 
 def test_card_without_translation_has_no_brackets(
