@@ -266,7 +266,12 @@ def _split_by_bucket(
 
 
 def _format_result(result: MatchResult, translator: Translator) -> str:
-    """Карточка коктейля: название, полный состав, чего не хватает."""
+    """Карточка коктейля: название, полный состав, чего не хватает.
+
+    Строки идут без отступа: Telegram по-разному обращается с ведущими
+    пробелами в подписях к фото, и «Состав» с «Докупить» начинали
+    выглядеть сдвинутыми друг относительно друга.
+    """
     total = len(result.matched) + len(result.missing)
     name = _bold(_title(result.cocktail.name, translator))
     matched = len(result.matched)
@@ -274,9 +279,9 @@ def _format_result(result: MatchResult, translator: Translator) -> str:
     composition = ", ".join(
         _unique(translator.ingredient(measure.ingredient) for measure in result.cocktail.measures)
     )
-    lines = [title, f"   <b>Состав:</b> {_escape(composition)}"]
+    lines = [title, f"<b>Состав:</b> {_escape(composition)}"]
     if not result.missing:
-        lines.append("   Всё есть")
+        lines.append("Всё есть")
         return "\n".join(lines)
 
     missing = ", ".join(
@@ -284,7 +289,7 @@ def _format_result(result: MatchResult, translator: Translator) -> str:
     )
     if len(result.missing) > MISSING_INLINE:
         missing += f" и ещё {len(result.missing) - MISSING_INLINE}"
-    lines.append(f"   <b>Докупить:</b> {_escape(missing)}")
+    lines.append(f"<b>Докупить:</b> {_escape(missing)}")
     return "\n".join(lines)
 
 
