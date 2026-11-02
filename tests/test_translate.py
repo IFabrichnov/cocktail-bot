@@ -155,7 +155,7 @@ def test_card_without_translation_has_no_brackets(
     assert "Negroni (" not in reply.text
 
 
-def test_recipe_button_and_text(
+def test_recipe_is_always_shown(
     cocktails: tuple[Cocktail, ...],
     translator: Translator,
 ) -> None:
@@ -168,22 +168,10 @@ def test_recipe_button_and_text(
         translator=translator,
         bucket=0,
     )
+    assert "<b>Готовить:</b> Смешать джин с тоником." in cards.text
     labels = [button.text for row in cards.rows for button in row]
-    assert "Как готовить" in labels
-    assert "Смешать джин с тоником." not in cards.text
-
-    opened = build_reply(
-        "джин, тоник, лайм",
-        cocktails,
-        matcher,
-        QueryCache(),
-        translator=translator,
-        bucket=0,
-        show_recipe=True,
-    )
-    assert "<b>Готовить:</b> Смешать джин с тоником." in opened.text
-    opened_labels = [button.text for row in opened.rows for button in row]
-    assert "Скрыть рецепт" in opened_labels
+    assert "Как готовить" not in labels
+    assert "Скрыть рецепт" not in labels
 
 
 def test_recipe_button_absent_without_translation(

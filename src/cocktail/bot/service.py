@@ -35,6 +35,8 @@ from cocktail.translate import Translator
 #: Одна карточка = одно сообщение с фотографией.
 #: Telegram ограничивает подпись к фото 1024 символами, оставляем запас.
 CAPTION_LIMIT = 1000
+#: Рецепт длиннее этого обрезаем: иначе он вытеснит состав и кнопки.
+RECIPE_LIMIT = 600
 #: Четыре страницы подбора: готово сейчас и докупить 1, 2 или 3.
 BUCKETS = (0, 1, 2, 3)
 #: Подписи кнопок-переключателей страниц.
@@ -161,19 +163,14 @@ def parse_have(text: str) -> list[str]:
     return result
 
 
-def parse_callback(data: str) -> tuple[int, int, str, bool] | None:
+def parse_callback(data: str) -> tuple[int, int, str] | None:
     """Разобрать callback_data.
 
-    Форматы: ``m1:ключ`` (страница без листания), ``m1:ключ:8`` (страница
-    и позиция) и ``r1:ключ:8`` (то же, но с показанным рецептом).
-    Возвращает ``(страница, позиция, ключ, показывать ли рецепт)``.
+    Два формата: ``m1:ключ`` (страница без листания) и ``m1:ключ:8``
+    (страница и позиция). Возвращает ``(страница, позиция, ключ)``.
     """
     prefix, separator, rest = data.partition(":")
-    if not separator or not prefix:
-        return None
-
-    show_recipe = prefix[0] == "r"
-    if prefix[0] not in {"m", "r"}:
+    if not separator or not prefix.startswith("m"):
         return None
 
     try:
@@ -198,7 +195,7 @@ def parse_callback(data: str) -> tuple[int, int, str, bool] | None:
             offset = 0
     if len(parts) > 2:
         return None
-    return bucket, offset, key, show_recipe
+    return bucket, offset, key
 
 
 def build_reply(
@@ -210,7 +207,6 @@ def build_reply(
     translator: Translator | None = None,
     bucket: int = 0,
     offset: int = 0,
-    show_recipe: bool = False,
 ) -> Reply:
     """Собрать ответ на пользовательский текст.
 
@@ -250,12 +246,14 @@ def build_reply(
     message = (
         f"Что можно сделать: {_escape(', '.join(have))}\n\n"
         f"{note}{_header(current, len(page), index)}\n\n"
-        f"{_format_result(result, renderer, show_recipe=show_recipe)}"
+        f"{_format_result(result, renderer)}"
     )
-    rows = (
-        _recipe_rows(text, cache, current, index, renderer, result, show_recipe)
-        + _bucket_rows(text, cache, current, pages)
-        + _navigation_rows(text, cache, current, index, len(page))
+    rows = _bucket_rows(text, cache, current, pages) + _navigation_rows(
+        text,
+        cache,
+        current,
+        index,
+        len(page),
     )
     return Reply(text=_clamp_caption(message), rows=rows, photo=result.cocktail.image)
 
@@ -281,12 +279,7 @@ def _split_by_bucket(
     return pages
 
 
-def _format_result(
-    result: MatchResult,
-    translator: Translator,
-    *,
-    show_recipe: bool = False,
-) -> str:
+def _format_result(result: MatchResult, translator: Translator) -> str:
     """Карточка коктейля: название, состав, докупка, бокал, рецепт.
 
     Строки идут без отступа: Telegram по-разному обращается с ведущими
@@ -317,9 +310,9 @@ def _format_result(
     if cocktail.video:
         lines.append(f'<a href="{_escape(cocktail.video)}">Смотреть видео</a>')
 
-    recipe = translator.instruction(cocktail.name) if show_recipe else None
+    recipe = translator.instruction(cocktail.name)
     if recipe:
-        lines.append(f"<b>Готовить:</b> {_escape(recipe)}")
+        lines.append(f"<b>Готовить:</b> {_escape(_shorten(recipe, RECIPE_LIMIT))}")
 
     return "\n".join(lines)
 
@@ -363,6 +356,14 @@ def _composition(result: MatchResult, translator: Translator) -> str:
         amount = format_amount(measure.amount, measure.unit)
         parts.append(f"{label} {amount}" if amount else label)
     return ", ".join(parts)
+
+
+def _shorten(text: str, limit: int) -> str:
+    """Обрезать длинный текст по границе слова."""
+    if len(text) <= limit:
+        return text
+    cut = text[:limit].rsplit(" ", 1)[0]
+    return f"{cut}..."
 
 
 def _escape(text: str) -> str:
@@ -412,28 +413,6 @@ def _header(bucket: int, total: int, index: int) -> str:
     if total > 1:
         title += f"\nКоктейль {index + 1} из {total}"
     return title
-
-
-def _recipe_rows(
-    text: str,
-    cache: QueryCache,
-    bucket: int,
-    index: int,
-    translator: Translator,
-    result: MatchResult,
-    shown: bool,
-) -> tuple[tuple[Button, ...], ...]:
-    """Кнопка «Как готовить»: только если рецепт переведён.
-
-    Рецепт занимает много места, поэтому он по кнопке, а не сразу: карточка
-    остаётся компактной, а кто хочет готовить - нажимает.
-    """
-    if not translator.has_instruction(result.cocktail.name):
-        return ()
-    key = cache.put(text)
-    prefix = "m" if shown else "r"
-    label = "Скрыть рецепт" if shown else "Как готовить"
-    return ((Button(text=label, data=f"{prefix}{bucket}:{key}:{index}"),),)
 
 
 def _bucket_rows(
