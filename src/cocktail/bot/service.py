@@ -21,6 +21,13 @@ from collections import OrderedDict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
+from cocktail.format import (
+    alcoholic_label,
+    category_label,
+    format_amount,
+    glass_label,
+    iba_label,
+)
 from cocktail.models import Cocktail
 from cocktail.search import IngredientMatcher, MatchResult, find
 from cocktail.translate import Translator
@@ -154,14 +161,19 @@ def parse_have(text: str) -> list[str]:
     return result
 
 
-def parse_callback(data: str) -> tuple[int, int, str] | None:
+def parse_callback(data: str) -> tuple[int, int, str, bool] | None:
     """Разобрать callback_data.
 
-    Два формата: ``m1:ключ`` (страница без листания) и ``m1:ключ:8``
-    (страница и смещение). Возвращает ``(страница, смещение, ключ)``.
+    Форматы: ``m1:ключ`` (страница без листания), ``m1:ключ:8`` (страница
+    и позиция) и ``r1:ключ:8`` (то же, но с показанным рецептом).
+    Возвращает ``(страница, позиция, ключ, показывать ли рецепт)``.
     """
     prefix, separator, rest = data.partition(":")
-    if not separator or not prefix.startswith("m"):
+    if not separator or not prefix:
+        return None
+
+    show_recipe = prefix[0] == "r"
+    if prefix[0] not in {"m", "r"}:
         return None
 
     try:
@@ -186,7 +198,7 @@ def parse_callback(data: str) -> tuple[int, int, str] | None:
             offset = 0
     if len(parts) > 2:
         return None
-    return bucket, offset, key
+    return bucket, offset, key, show_recipe
 
 
 def build_reply(
@@ -198,6 +210,7 @@ def build_reply(
     translator: Translator | None = None,
     bucket: int = 0,
     offset: int = 0,
+    show_recipe: bool = False,
 ) -> Reply:
     """Собрать ответ на пользовательский текст.
 
@@ -237,14 +250,12 @@ def build_reply(
     message = (
         f"Что можно сделать: {_escape(', '.join(have))}\n\n"
         f"{note}{_header(current, len(page), index)}\n\n"
-        f"{_format_result(result, renderer)}"
+        f"{_format_result(result, renderer, show_recipe=show_recipe)}"
     )
-    rows = _bucket_rows(text, cache, current, pages) + _navigation_rows(
-        text,
-        cache,
-        current,
-        index,
-        len(page),
+    rows = (
+        _recipe_rows(text, cache, current, index, renderer, result, show_recipe)
+        + _bucket_rows(text, cache, current, pages)
+        + _navigation_rows(text, cache, current, index, len(page))
     )
     return Reply(text=_clamp_caption(message), rows=rows, photo=result.cocktail.image)
 
@@ -270,33 +281,65 @@ def _split_by_bucket(
     return pages
 
 
-def _format_result(result: MatchResult, translator: Translator) -> str:
-    """Карточка коктейля: название, полный состав, чего не хватает.
+def _format_result(
+    result: MatchResult,
+    translator: Translator,
+    *,
+    show_recipe: bool = False,
+) -> str:
+    """Карточка коктейля: название, состав, докупка, бокал, рецепт.
 
     Строки идут без отступа: Telegram по-разному обращается с ведущими
     пробелами в подписях к фото, и «Состав» с «Докупить» начинали
     выглядеть сдвинутыми друг относительно друга.
     """
+    cocktail = result.cocktail
     total = len(result.matched) + len(result.missing)
-    name = _bold(_title(result.cocktail.name, translator))
+    name = _bold(_title(cocktail.name, translator))
     matched = len(result.matched)
-    title = f"{name} - {matched}/{total}"
-    lines = [title, f"<b>Состав:</b> {_escape(_composition(result, translator))}"]
-    if not result.missing:
-        lines.append("Всё есть")
-        return "\n".join(lines)
+    lines = [f"{name} - {matched}/{total}"]
+    lines.append(f"<b>Состав:</b> {_escape(_composition(result, translator))}")
 
-    missing = ", ".join(
-        _unique(translator.ingredient(item) for item in result.missing[:MISSING_INLINE])
-    )
-    if len(result.missing) > MISSING_INLINE:
-        missing += f" и ещё {len(result.missing) - MISSING_INLINE}"
-    lines.append(f"<b>Докупить:</b> {_escape(missing)}")
+    if result.missing:
+        missing = ", ".join(
+            _unique(translator.ingredient(item) for item in result.missing[:MISSING_INLINE])
+        )
+        if len(result.missing) > MISSING_INLINE:
+            missing += f" и ещё {len(result.missing) - MISSING_INLINE}"
+        lines.append(f"<b>Докупить:</b> {_escape(missing)}")
+    else:
+        lines.append("Всё есть")
+
+    meta = _meta_line(cocktail)
+    if meta:
+        lines.append(meta)
+
+    if cocktail.video:
+        lines.append(f'<a href="{_escape(cocktail.video)}">Смотреть видео</a>')
+
+    recipe = translator.instruction(cocktail.name) if show_recipe else None
+    if recipe:
+        lines.append(f"<b>Готовить:</b> {_escape(recipe)}")
+
     return "\n".join(lines)
 
 
+def _meta_line(cocktail: Cocktail) -> str:
+    """Бокал, тип и метки одной строкой, чтобы не растягивать карточку."""
+    parts: list[str] = []
+    glass = glass_label(cocktail.glass)
+    if glass:
+        parts.append(f"<b>Бокал:</b> {_escape(glass)}")
+    category = category_label(cocktail.category)
+    if category:
+        parts.append(f"<b>Тип:</b> {_escape(category)}")
+    marks = [iba_label(cocktail.iba), alcoholic_label(cocktail.alcoholic)]
+    parts.extend(_escape(mark) for mark in marks if mark)
+    return " · ".join(parts)
+
+
 def _composition(result: MatchResult, translator: Translator) -> str:
-    """Состав строкой: русское название и оригинал в скобках.
+    """Состав строкой: русское название, оригинал в скобках и количество.
 
     Английское имя оставляем рядом, потому что по нему ищут и по нему же
     сверяются с меню и магазином. Если перевода нет, скобки не рисуются:
@@ -310,11 +353,15 @@ def _composition(result: MatchResult, translator: Translator) -> str:
         if key in seen:
             continue
         seen.add(key)
+
         translated = translator.ingredient(original)
-        if translated.casefold() == original.casefold():
-            parts.append(original)
-        else:
-            parts.append(f"{translated} ({original})")
+        label = (
+            original
+            if translated.casefold() == original.casefold()
+            else (f"{translated} ({original})")
+        )
+        amount = format_amount(measure.amount, measure.unit)
+        parts.append(f"{label} {amount}" if amount else label)
     return ", ".join(parts)
 
 
@@ -365,6 +412,28 @@ def _header(bucket: int, total: int, index: int) -> str:
     if total > 1:
         title += f"\nКоктейль {index + 1} из {total}"
     return title
+
+
+def _recipe_rows(
+    text: str,
+    cache: QueryCache,
+    bucket: int,
+    index: int,
+    translator: Translator,
+    result: MatchResult,
+    shown: bool,
+) -> tuple[tuple[Button, ...], ...]:
+    """Кнопка «Как готовить»: только если рецепт переведён.
+
+    Рецепт занимает много места, поэтому он по кнопке, а не сразу: карточка
+    остаётся компактной, а кто хочет готовить - нажимает.
+    """
+    if not translator.has_instruction(result.cocktail.name):
+        return ()
+    key = cache.put(text)
+    prefix = "m" if shown else "r"
+    label = "Скрыть рецепт" if shown else "Как готовить"
+    return ((Button(text=label, data=f"{prefix}{bucket}:{key}:{index}"),),)
 
 
 def _bucket_rows(

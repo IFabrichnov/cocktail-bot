@@ -266,6 +266,8 @@ def _format_coverage(coverage_stats: TranslationCoverage) -> str:
         f" {coverage_stats.ingredient_rows_ratio:.1%} строк",
         f"Перевод коктейлей: {coverage_stats.cocktails_translated}"
         f" из {coverage_stats.cocktails} ({coverage_stats.cocktails_ratio:.1%})",
+        f"Перевод рецептов: {coverage_stats.instructions_translated}"
+        f" из {coverage_stats.instructions} ({coverage_stats.instructions_ratio:.1%})",
     ]
     return "\n".join(lines)
 

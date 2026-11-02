@@ -59,6 +59,8 @@ class Cocktail:
     instructions: str | None = None
     tags: tuple[str, ...] = field(default_factory=tuple)
     image: str | None = None
+    iba: str | None = None
+    video: str | None = None
 
     @property
     def ingredients(self) -> tuple[str, ...]:
@@ -79,6 +81,8 @@ class Cocktail:
             "instructions": self.instructions,
             "tags": list(self.tags),
             "image": self.image,
+            "iba": self.iba,
+            "video": self.video,
             "measures": [m.to_dict() for m in self.measures],
         }
 
@@ -95,6 +99,8 @@ class Cocktail:
             instructions=_opt_str(data.get("instructions")),
             tags=tuple(str(t) for t in raw_tags),
             image=_opt_str(data.get("image")),
+            iba=_opt_str(data.get("iba")),
+            video=_opt_str(data.get("video")),
         )
 
 

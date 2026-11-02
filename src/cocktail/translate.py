@@ -32,9 +32,11 @@ class Translator:
 
     ingredients: Mapping[str, str] = field(default_factory=dict)
     cocktails: Mapping[str, str] = field(default_factory=dict)
+    instructions: Mapping[str, str] = field(default_factory=dict)
     version: int = 1
     _ingredients: Mapping[str, str] = field(init=False, repr=False, compare=False)
     _cocktails: Mapping[str, str] = field(init=False, repr=False, compare=False)
+    _instructions: Mapping[str, str] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -47,6 +49,11 @@ class Translator:
             "_cocktails",
             {normalize_text(key): value for key, value in self.cocktails.items()},
         )
+        object.__setattr__(
+            self,
+            "_instructions",
+            {normalize_text(key): value for key, value in self.instructions.items()},
+        )
 
     def ingredient(self, name: str) -> str:
         """Подпись ингредиента или исходное название."""
@@ -56,14 +63,21 @@ class Translator:
         """Подпись коктейля или None, если перевода нет."""
         return self._cocktails.get(normalize_text(name))
 
+    def instruction(self, name: str) -> str | None:
+        """Рецепт по-русски или None, если перевода нет."""
+        return self._instructions.get(normalize_text(name))
+
     def has_ingredient(self, name: str) -> bool:
         return normalize_text(name) in self._ingredients
 
     def has_cocktail(self, name: str) -> bool:
         return normalize_text(name) in self._cocktails
 
+    def has_instruction(self, name: str) -> bool:
+        return normalize_text(name) in self._instructions
+
     def __len__(self) -> int:
-        return len(self._ingredients) + len(self._cocktails)
+        return len(self._ingredients) + len(self._cocktails) + len(self._instructions)
 
     @classmethod
     def empty(cls) -> Translator:
@@ -89,7 +103,13 @@ class Translator:
         version = raw.get("version", 1)
         ingredients = _section(raw.get("ingredients"), path, "ingredients")
         cocktails = _section(raw.get("cocktails"), path, "cocktails")
-        return cls(ingredients=ingredients, cocktails=cocktails, version=int(version))
+        instructions = _section(raw.get("instructions", {}), path, "instructions")
+        return cls(
+            ingredients=ingredients,
+            cocktails=cocktails,
+            instructions=instructions,
+            version=int(version),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,6 +122,8 @@ class TranslationCoverage:
     unique_ingredients_translated: int
     cocktails: int
     cocktails_translated: int
+    instructions: int
+    instructions_translated: int
 
     @property
     def ingredient_rows_ratio(self) -> float:
@@ -119,6 +141,10 @@ class TranslationCoverage:
     def cocktails_ratio(self) -> float:
         return self.cocktails_translated / self.cocktails if self.cocktails else 0.0
 
+    @property
+    def instructions_ratio(self) -> float:
+        return self.instructions_translated / self.instructions if self.instructions else 0.0
+
     def to_dict(self) -> dict[str, object]:
         return {
             "ingredient_rows": self.ingredient_rows,
@@ -130,6 +156,9 @@ class TranslationCoverage:
             "cocktails": self.cocktails,
             "cocktails_translated": self.cocktails_translated,
             "cocktails_ratio": round(self.cocktails_ratio, 4),
+            "instructions": self.instructions,
+            "instructions_translated": self.instructions_translated,
+            "instructions_ratio": round(self.instructions_ratio, 4),
         }
 
 
@@ -151,10 +180,15 @@ def coverage(cocktails: Sequence[Cocktail], translator: Translator) -> Translati
 
     names = 0
     names_translated = 0
+    recipes = 0
+    recipes_translated = 0
     for cocktail in cocktails:
         names += 1
         if translator.has_cocktail(cocktail.name):
             names_translated += 1
+        recipes += 1
+        if translator.has_instruction(cocktail.name):
+            recipes_translated += 1
 
     return TranslationCoverage(
         ingredient_rows=rows,
@@ -163,6 +197,8 @@ def coverage(cocktails: Sequence[Cocktail], translator: Translator) -> Translati
         unique_ingredients_translated=len(unique_translated),
         cocktails=names,
         cocktails_translated=names_translated,
+        instructions=recipes,
+        instructions_translated=recipes_translated,
     )
 
 

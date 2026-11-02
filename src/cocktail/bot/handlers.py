@@ -126,7 +126,7 @@ async def on_page(callback: CallbackQuery, app: BotApp) -> None:
         await callback.answer()
         return
 
-    bucket, offset, key = parsed
+    bucket, offset, key, show_recipe = parsed
     text = app.cache.get(key)
     if text is None:
         await callback.answer(STALE_QUERY_TEXT, show_alert=True)
@@ -140,6 +140,7 @@ async def on_page(callback: CallbackQuery, app: BotApp) -> None:
         translator=app.translator,
         bucket=bucket,
         offset=offset,
+        show_recipe=show_recipe,
     )
     message = callback.message
     if isinstance(message, Message):
@@ -159,7 +160,10 @@ def build_router() -> Router:
     router.message.register(on_about, Command("about"))
     router.message.register(on_unknown_command, F.text.startswith("/"))
     router.message.register(on_text, F.text)
-    router.callback_query.register(on_page, F.data.startswith("m"))
+    router.callback_query.register(
+        on_page,
+        F.data.startswith("m") | F.data.startswith("r"),
+    )
     return router
 
 

@@ -201,6 +201,8 @@ def cocktail_from_raw(raw: Mapping[str, Any]) -> Cocktail:
         instructions=_field(raw, "strInstructions"),
         tags=tags,
         image=_field(raw, "strDrinkThumb") or None,
+        iba=_field(raw, "strIBA") or None,
+        video=_field(raw, "strVideo") or None,
     )
 
 

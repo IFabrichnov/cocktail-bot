@@ -24,6 +24,7 @@ def translator() -> Translator:
             "lime juice": "сок лайма",
         },
         cocktails={"Gin Tonic": "Джин-тоник"},
+        instructions={"Gin Tonic": "Смешать джин с тоником."},
     )
 
 
@@ -110,7 +111,8 @@ def test_card_shows_russian_name_and_composition(
         translator=translator,
     )
     assert "<b>Gin Tonic (Джин-тоник)</b>" in reply.text
-    assert "<b>Состав:</b> джин (Gin), тоник (Tonic water), лайм (Lime)" in reply.text
+    assert "<b>Состав:</b> джин (Gin) 59,1 мл" in reply.text
+    assert "долька" in reply.text
     assert "Всё есть" in reply.text
 
 
@@ -151,6 +153,54 @@ def test_card_without_translation_has_no_brackets(
     # поэтому скобок быть не должно.
     assert "<b>Negroni</b>" in reply.text
     assert "Negroni (" not in reply.text
+
+
+def test_recipe_button_and_text(
+    cocktails: tuple[Cocktail, ...],
+    translator: Translator,
+) -> None:
+    matcher = IngredientMatcher(AliasBook(entries={"gin": ("джин",)}))
+    cards = build_reply(
+        "джин, тоник, лайм",
+        cocktails,
+        matcher,
+        QueryCache(),
+        translator=translator,
+        bucket=0,
+    )
+    labels = [button.text for row in cards.rows for button in row]
+    assert "Как готовить" in labels
+    assert "Смешать джин с тоником." not in cards.text
+
+    opened = build_reply(
+        "джин, тоник, лайм",
+        cocktails,
+        matcher,
+        QueryCache(),
+        translator=translator,
+        bucket=0,
+        show_recipe=True,
+    )
+    assert "<b>Готовить:</b> Смешать джин с тоником." in opened.text
+    opened_labels = [button.text for row in opened.rows for button in row]
+    assert "Скрыть рецепт" in opened_labels
+
+
+def test_recipe_button_absent_without_translation(
+    cocktails: tuple[Cocktail, ...],
+) -> None:
+    matcher = IngredientMatcher(AliasBook(entries={"gin": ("джин",)}))
+    reply = build_reply(
+        "джин, тоник, лайм",
+        cocktails,
+        matcher,
+        QueryCache(),
+        translator=Translator(ingredients={"gin": "джин"}),
+        bucket=2,
+        offset=1,
+    )
+    labels = [button.text for row in reply.rows for button in row]
+    assert "Как готовить" not in labels
 
 
 def test_missing_line_is_translated(

@@ -42,11 +42,13 @@ def test_parse_have(text: str, expected: list[str]) -> None:
 @pytest.mark.parametrize(
     ("data", "expected"),
     [
-        ("m0:abcd123456", (0, 0, "abcd123456")),
-        ("m3:key", (3, 0, "key")),
-        ("m2:key:8", (2, 8, "key")),
-        ("m1:key:0", (1, 0, "key")),
-        ("m1:key:-5", (1, 0, "key")),
+        ("m0:abcd123456", (0, 0, "abcd123456", False)),
+        ("m3:key", (3, 0, "key", False)),
+        ("m2:key:8", (2, 8, "key", False)),
+        ("m1:key:0", (1, 0, "key", False)),
+        ("m1:key:-5", (1, 0, "key", False)),
+        ("r2:key:3", (2, 3, "key", True)),
+        ("r0:key", (0, 0, "key", True)),
         ("x0:key", None),
         ("m:key", None),
         ("m0:", None),
@@ -56,7 +58,7 @@ def test_parse_have(text: str, expected: list[str]) -> None:
         ("m1:key:8:9", None),
     ],
 )
-def test_parse_callback(data: str, expected: tuple[int, int, str] | None) -> None:
+def test_parse_callback(data: str, expected: tuple[int, int, str, bool] | None) -> None:
     assert parse_callback(data) == expected
 
 
@@ -218,7 +220,7 @@ def test_button_data_roundtrip(
     button = reply.rows[0][0]
     parsed = parse_callback(button.data)
     assert parsed is not None
-    bucket, offset, key = parsed
+    bucket, offset, key, _show = parsed
     # Текущая страница 0: готов Gin Tonic. Из остальных непустая только 2,
     # потому что Negroni не хватает двух ингредиентов.
     assert bucket == 2
@@ -248,7 +250,7 @@ def test_forward_arrow_then_back(
 
     parsed = parse_callback(forward.data)
     assert parsed is not None
-    bucket, offset, _key = parsed
+    bucket, offset, _key, _show = parsed
     assert offset == 1, "стрелка листает по одной карточке"
 
     second = build_reply("джин", many_cocktails, matcher, cache, bucket=bucket, offset=offset)
