@@ -102,7 +102,7 @@ def test_markup_is_attached_to_photo_message() -> None:
     fake = FakeMessage(has_photo=True)
     reply = Reply(
         text="карточка",
-        rows=((Button(text="вперёд ▶", data="m1:key:1"),),),
+        rows=((Button(text="Вперёд к 2 ▶", data="m1:key:1"),),),
         photo="https://example.test/new.jpg",
     )
 

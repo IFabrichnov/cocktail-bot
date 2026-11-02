@@ -7,6 +7,8 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from cocktail.bot.service import (
+    BUCKET_LABELS,
+    BUCKETS,
     EMPTY_TEXT,
     NOTHING_TEXT,
     Button,
@@ -134,9 +136,9 @@ def test_bucket_is_clamped(
     cocktails: tuple[Cocktail, ...],
     matcher: IngredientMatcher,
 ) -> None:
-    # Раньше кнопка умела «докупить 3», теперь такого нет.
-    reply = build_reply("джин, тоник", cocktails, matcher, QueryCache(), bucket=99)
-    assert "Докупить 2" in reply.text
+    # Страниц докупки всего четыре (0-3): 99 приводится к 3.
+    reply = build_reply("джин, тоник, лайм", cocktails, matcher, QueryCache(), bucket=99)
+    assert "Докупить 3 ингредиента" in reply.text
 
 
 def test_reply_when_nothing_at_all(
@@ -168,7 +170,7 @@ def test_buttons_offer_other_pages(
     # она вела бы на пустой экран.
     reply = build_reply("джин, тоник", cocktails, matcher, cache, bucket=1)
     buttons = [button for row in reply.rows for button in row]
-    assert [button.text for button in buttons] == ["докупить 2"]
+    assert [button.text for button in buttons] == ["Докупить 2"]
     assert all(button.data.startswith("m") for button in buttons)
     assert len(buttons[0].data.encode("utf-8")) <= 64
 
@@ -178,7 +180,7 @@ def test_buttons_never_lead_to_empty_page(
     matcher: IngredientMatcher,
 ) -> None:
     cache = QueryCache()
-    for bucket in (0, 1, 2):
+    for bucket in BUCKETS:
         reply = build_reply("джин, тоник", cocktails, matcher, cache, bucket=bucket)
         for button in (button for row in reply.rows for button in row):
             target = int(button.data[1:].split(":")[0])
@@ -192,15 +194,19 @@ def test_buttons_never_lead_to_empty_page(
             assert follow_up.text != NOTHING_TEXT
 
 
-def test_no_button_for_three(
+def test_labels_start_with_capital() -> None:
+    for label in BUCKET_LABELS.values():
+        assert label[0].isupper(), label
+
+
+def test_three_purchases_available(
     cocktails: tuple[Cocktail, ...],
     matcher: IngredientMatcher,
 ) -> None:
     cache = QueryCache()
-    for bucket in (0, 1, 2):
-        reply = build_reply("джин, тоник", cocktails, matcher, cache, bucket=bucket)
-        texts = [button.text for row in reply.rows for button in row]
-        assert "докупить 3" not in texts
+    reply = build_reply("джин, тоник, лайм", cocktails, matcher, cache)
+    texts = [button.text for row in reply.rows for button in row]
+    assert "Докупить 3" in texts
 
 
 def test_button_data_roundtrip(
@@ -236,9 +242,9 @@ def test_forward_arrow_then_back(
 ) -> None:
     cache = QueryCache()
     first = build_reply("джин", many_cocktails, matcher, cache, bucket=1)
-    forward = _button(first, "вперёд ▶")
+    forward = _button(first, "Вперёд к 2 ▶")
     assert forward is not None
-    assert _button(first, "◀ назад") is None, "на первой карточке назад идти некуда"
+    assert _button_startswith(first, "◀ Назад") is None, "на первой карточке назад идти некуда"
 
     parsed = parse_callback(forward.data)
     assert parsed is not None
@@ -247,9 +253,10 @@ def test_forward_arrow_then_back(
 
     second = build_reply("джин", many_cocktails, matcher, cache, bucket=bucket, offset=offset)
     assert "Коктейль 2 из 20" in second.text
-    assert _button(second, "◀ назад") is not None
+    assert _button(second, "◀ Назад к 1") is not None
+    assert _button(second, "Вперёд к 3 ▶") is not None
 
-    back = _button(second, "◀ назад")
+    back = _button(second, "◀ Назад к 1")
     assert back is not None
     parsed_back = parse_callback(back.data)
     assert parsed_back is not None
@@ -270,8 +277,8 @@ def test_last_card_has_no_forward_arrow(
         bucket=1,
         offset=total - 1,
     )
-    assert _button(reply, "вперёд ▶") is None
-    assert _button(reply, "◀ назад") is not None
+    assert _button_startswith(reply, "Вперёд") is None
+    assert _button(reply, f"◀ Назад к {total - 1}") is not None
     assert f"Коктейль {total} из {total}" in reply.text
 
 
@@ -289,8 +296,8 @@ def test_single_result_has_no_position_and_arrows(
     matcher: IngredientMatcher,
 ) -> None:
     reply = build_reply("джин, тоник", cocktails, matcher, QueryCache(), bucket=1)
-    assert _button(reply, "вперёд ▶") is None
-    assert _button(reply, "◀ назад") is None
+    assert _button_startswith(reply, "Вперёд") is None
+    assert _button_startswith(reply, "◀ Назад") is None
     assert "Коктейль" not in reply.text
 
 
@@ -344,6 +351,14 @@ def test_button_is_frozen() -> None:
     button = Button(text="x", data="m0:key")
     with pytest.raises(FrozenInstanceError):
         button.text = "y"  # type: ignore[misc]
+
+
+def _button_startswith(reply: Reply, prefix: str) -> Button | None:
+    for row in reply.rows:
+        for button in row:
+            if button.text.startswith(prefix):
+                return button
+    return None
 
 
 def _button(reply: Reply, label: str) -> Button | None:

@@ -28,10 +28,15 @@ from cocktail.translate import Translator
 #: Одна карточка = одно сообщение с фотографией.
 #: Telegram ограничивает подпись к фото 1024 символами, оставляем запас.
 CAPTION_LIMIT = 1000
-#: Три страницы подбора: готово сейчас, докупить один, докупить два.
-BUCKETS = (0, 1, 2)
+#: Четыре страницы подбора: готово сейчас и докупить 1, 2 или 3.
+BUCKETS = (0, 1, 2, 3)
 #: Подписи кнопок-переключателей страниц.
-BUCKET_LABELS = {0: "только своё", 1: "докупить 1", 2: "докупить 2"}
+BUCKET_LABELS = {
+    0: "Только своё",
+    1: "Докупить 1",
+    2: "Докупить 2",
+    3: "Докупить 3",
+}
 #: Telegram ограничивает сообщение 4096 символами, оставляем запас.
 TEXT_LIMIT = 3800
 #: Предел запоминаемых запросов для кнопок.
@@ -83,8 +88,8 @@ TRUNCATED_SUFFIX = "\n\nСписок длинный, показал первые
 NOTE_NO_READY = "Готовых коктейлей нет. Показываю ближайшее:"
 NOTE_ONE_MISSING_EMPTY = "И с одним недостающим пусто. Дальше только с двумя:"
 
-BACK_LABEL = "◀ назад"
-FORWARD_LABEL = "вперёд ▶"
+BACK_TEMPLATE = "◀ Назад к {target}"
+FORWARD_TEMPLATE = "Вперёд к {target} ▶"
 
 
 @dataclass(frozen=True, slots=True)
@@ -402,9 +407,18 @@ def _navigation_rows(
     key = cache.put(text)
     buttons: list[Button] = []
     if index > 0:
-        buttons.append(Button(text=BACK_LABEL, data=f"m{bucket}:{key}:{index - 1}"))
+        target = index
+        buttons.append(
+            Button(text=BACK_TEMPLATE.format(target=target), data=f"m{bucket}:{key}:{index - 1}"),
+        )
     if index + 1 < total:
-        buttons.append(Button(text=FORWARD_LABEL, data=f"m{bucket}:{key}:{index + 1}"))
+        target = index + 2
+        buttons.append(
+            Button(
+                text=FORWARD_TEMPLATE.format(target=target),
+                data=f"m{bucket}:{key}:{index + 1}",
+            ),
+        )
     if not buttons:
         return ()
     return (tuple(buttons),)
