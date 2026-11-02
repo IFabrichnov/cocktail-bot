@@ -9,5 +9,9 @@
 *.json text eol=lf
 Makefile text eol=lf
 
+# Картинки - бинарные, никаких переводов строк
+*.jpg binary
+*.png binary
+
 # Снапшот данных - однострочный JSON с отступами: он текстовый и диффится.
 data/raw/*.json text eol=lf
